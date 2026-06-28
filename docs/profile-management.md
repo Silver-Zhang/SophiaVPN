@@ -2,14 +2,14 @@
 
 [English](profile-management.md) | [中文](profile-management.zh-CN.md)
 
-SilverVPN stores imported subscriptions as profiles. A profile is a saved configuration source with its own local YAML file, display name and node metadata.
+SophiaVPN stores imported subscriptions as profiles. A profile is a saved configuration source with its own local YAML file, display name and node metadata.
 
-All profile operations are per-user and only modify the current user's `~/.config/SilverVPN` directory.
+All profile operations are per-user and only modify the current user's `~/.config/SophiaVPN` directory.
 
 ## List profiles
 
 ```bash
-svpn profile list
+sophia profile list
 ```
 
 The active profile is marked with `*`.
@@ -17,8 +17,8 @@ The active profile is marked with `*`.
 ## Switch profile
 
 ```bash
-svpn profile use 1
-svpn profile use 'My Profile'
+sophia profile use 1
+sophia profile use 'My Profile'
 ```
 
 The selector can be a number, exact name, profile id, or a unique name fragment.
@@ -26,8 +26,8 @@ The selector can be a number, exact name, profile id, or a unique name fragment.
 ## Rename profile
 
 ```bash
-svpn profile rename 1 'Work Nodes'
-svpn profile rename 'Custom Subscription' 'Personal Nodes'
+sophia profile rename 1 'Work Nodes'
+sophia profile rename 'Custom Subscription' 'Personal Nodes'
 ```
 
 Renaming changes only local display metadata. It does not modify the subscription provider, subscription URL, or other users' profiles.
@@ -35,11 +35,11 @@ Renaming changes only local display metadata. It does not modify the subscriptio
 ## Delete profile
 
 ```bash
-svpn profile delete 2
-svpn profile delete 1 --yes
+sophia profile delete 2
+sophia profile delete 1 --yes
 ```
 
-Deleting the active profile requires `--yes`. SilverVPN keeps the active Clash config file when the active profile is deleted, so a running backend is not broken immediately.
+Deleting the active profile requires `--yes`. SophiaVPN keeps the active Clash config file when the active profile is deleted, so a running backend is not broken immediately.
 
 ## Safety boundaries
 
