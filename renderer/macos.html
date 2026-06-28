@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SilverVPN for macOS</title>
+  <title>SophiaVPN</title>
   <style>
     :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
     body { margin: 0; background: #f5f5f7; color: #1d1d1f; }
@@ -37,8 +37,8 @@
 </head>
 <body>
   <header>
-    <h1>SilverVPN for macOS</h1>
-    <p>Proxy-only desktop controller for mihomo subscriptions. TUN is disabled in this macOS branch.</p>
+    <h1>SophiaVPN</h1>
+    <p>macOS proxy-only VPN/proxy controller for mihomo subscriptions. TUN is disabled; system proxy is conflict-aware.</p>
   </header>
 
   <main>
@@ -53,6 +53,7 @@
       <div class="row">
         <button class="secondary" onclick="runAction('test')">Connectivity Test</button>
         <button class="secondary" onclick="runAction('system-proxy-status')">System Proxy Status</button>
+        <button class="secondary" onclick="runAction('conflicts')">Conflict Check</button>
       </div>
     </section>
 
@@ -102,18 +103,24 @@
     </section>
 
     <section class="full">
+      <h2>Conflict Status</h2>
+      <pre id="conflicts">Loading...</pre>
+      <p class="muted">If other VPN/proxy/network-access clients are detected, SophiaVPN starts local proxy services but skips automatic macOS system-proxy takeover.</p>
+    </section>
+
+    <section class="full">
       <h2>Output</h2>
       <pre id="output">Ready.</pre>
       <div class="row">
         <button class="secondary" onclick="openDataDir()">Open Data Directory</button>
         <button class="secondary" onclick="openLogDir()">Open Logs</button>
-        <button class="secondary" onclick="runAction('install-svpn')">Reinstall svpn CLI</button>
+        <button class="secondary" onclick="runAction('install-sophia')">Reinstall sophia CLI</button>
       </div>
     </section>
   </main>
 
   <script>
-    const api = window.silverVPN;
+    const api = window.sophiaVPN || window.silverVPN;
 
     function text(id, value) {
       document.getElementById(id).textContent = value || '';
@@ -128,69 +135,71 @@
       const running = status && status.running;
       const ports = status && status.ports ? status.ports : {};
       document.getElementById('statusBox').innerHTML = `
-        <div>Backend</div><div class="${running ? 'ok' : 'bad'}">${running ? 'Running' : 'Stopped'}</div>
-        <div>Mode</div><div>${status ? status.mode : '-'}</div>
-        <div>Node</div><div>${status ? status.node : '-'}</div>
+        <div>Runtime</div><div class="${running ? 'ok' : 'bad'}">${running ? 'Running' : 'Stopped'}</div>
+        <div>Mode</div><div>${status && status.mode ? status.mode : '-'}</div>
+        <div>Node</div><div>${status && status.node ? status.node : '-'}</div>
         <div>HTTP</div><div>${ports.http || '-'}</div>
         <div>SOCKS</div><div>${ports.socks || '-'}</div>
-        <div>Terminal proxy</div><div>${status && status.terminalProxy ? 'On' : 'Off'}</div>
-        <div>Data</div><div>${dashboard ? dashboard.dataDir : '-'}</div>
+        <div>Data</div><div>${dashboard && dashboard.dataDir ? dashboard.dataDir : '-'}</div>
       `;
-      text('profiles', dashboard ? dashboard.profilesText || 'No profiles.' : 'No profiles.');
-      text('nodes', dashboard ? dashboard.nodesText || 'No nodes.' : 'No nodes.');
+      text('profiles', dashboard && dashboard.profilesText ? dashboard.profilesText : 'No profiles.');
+      text('nodes', dashboard && dashboard.nodesText ? dashboard.nodesText : 'No nodes.');
+      text('conflicts', dashboard && dashboard.conflictsText ? dashboard.conflictsText : 'No conflict status.');
     }
 
-    async function call(action, payload = {}) {
+    async function call(action, payload) {
+      const response = await api.invoke(action, payload || {});
+      if (response && response.dashboard) renderDashboard(response.dashboard);
+      if (response && response.text) setOutput(response.text);
+      else if (response && response.stderr) setOutput(response.stderr);
+      return response;
+    }
+
+    async function refresh() {
       try {
-        setOutput(`Running: ${action} ...`);
-        const result = await api.invoke(action, payload);
-        if (result && result.dashboard) renderDashboard(result.dashboard);
-        if (result && result.text) setOutput(result.text);
-        else if (result && typeof result === 'object') setOutput(JSON.stringify(result, null, 2));
-        else setOutput(String(result || 'Done.'));
-        return result;
+        const dashboard = await api.invoke('dashboard');
+        renderDashboard(dashboard);
       } catch (error) {
         setOutput(error.message || String(error));
       }
     }
 
-    async function refresh() {
-      const result = await api.invoke('dashboard');
-      renderDashboard(result);
-      setOutput(result.statusText || 'Refreshed.');
+    async function runAction(action) {
+      try { await call(action); } catch (error) { setOutput(error.message || String(error)); }
     }
 
-    function runAction(action) { return call(action); }
-
-    function importProfile() {
-      return call('import', {
+    async function importProfile() {
+      await call('import', {
         source: document.getElementById('subscription').value,
         name: document.getElementById('profileName').value
       });
     }
 
-    function profileUse() {
-      return call('profile-use', { profile: document.getElementById('profileSelector').value });
+    async function profileUse() {
+      await call('profile-use', { profile: document.getElementById('profileSelector').value });
     }
 
-    function profileRename() {
-      return call('profile-rename', {
+    async function profileRename() {
+      await call('profile-rename', {
         profile: document.getElementById('profileRenameSelector').value,
         name: document.getElementById('profileNewName').value
       });
     }
 
-    function profileDelete() {
-      return call('profile-delete', { profile: document.getElementById('profileDeleteSelector').value, yes: true });
+    async function profileDelete() {
+      await call('profile-delete', { profile: document.getElementById('profileDeleteSelector').value, yes: true });
     }
 
-    function useNode() {
-      return call('use-node', { node: document.getElementById('nodeSelector').value });
+    async function useNode() {
+      await call('use-node', { node: document.getElementById('nodeSelector').value });
     }
 
-    function setMode(mode) { return call('mode', { mode }); }
-    function openDataDir() { return call('open-data-dir'); }
-    function openLogDir() { return call('open-log-dir'); }
+    async function setMode(mode) {
+      await call('mode', { mode });
+    }
+
+    async function openDataDir() { await call('open-data-dir'); }
+    async function openLogDir() { await call('open-log-dir'); }
 
     refresh();
   </script>
