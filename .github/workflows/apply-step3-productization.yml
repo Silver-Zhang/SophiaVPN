@@ -1,0 +1,681 @@
+name: Apply SophiaVPN step 3 productization
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-step3-productization.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  productize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout SophiaVPN
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Apply product rename and conflict detection
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          from pathlib import Path
+          import json
+          import os
+          import re
+          import shutil
+
+          root = Path('.')
+
+          def move(src, dst):
+              srcp, dstp = root / src, root / dst
+              if srcp.exists() and not dstp.exists():
+                  dstp.parent.mkdir(parents=True, exist_ok=True)
+                  srcp.rename(dstp)
+
+          # Product-level renames. Keep compatibility wrappers after the formal rename.
+          move('bin/svpn', 'bin/sophia')
+          move('bin/svpn.js', 'bin/sophia.js')
+          move('bin/svpn-import.js', 'bin/sophia-import.js')
+          move('bin/svpn-profile.js', 'bin/sophia-profile.js')
+          move('scripts/install-svpn.sh', 'scripts/install-sophia.sh')
+
+          text_suffixes = {'.js', '.sh', '.json', '.md', '.html', '.css', '.yml', '.yaml', '.txt', '.plist'}
+          skip_parts = {'.git', 'node_modules', 'dist'}
+
+          replacements = [
+              ('SilverVPN', 'SophiaVPN'),
+              ('silvervpn', 'sophiavpn'),
+              ('SILVERVPN', 'SOPHIAVPN'),
+              ('Silver-Zhang/SilverVPN', 'Silver-Zhang/SophiaVPN'),
+              ('com.silver.vpn', 'com.sophia.vpn'),
+              ('.config/SilverVPN', '.config/SophiaVPN'),
+              ('Library/Logs/SilverVPN', 'Library/Logs/SophiaVPN'),
+              ('Applications/SilverVPN.app', 'Applications/SophiaVPN.app'),
+              ('SilverVPN.app', 'SophiaVPN.app'),
+              ('svpn-import.js', 'sophia-import.js'),
+              ('svpn-profile.js', 'sophia-profile.js'),
+              ('svpn.js', 'sophia.js'),
+              ('install-svpn.sh', 'install-sophia.sh'),
+          ]
+
+          for path in list(root.rglob('*')):
+              if not path.is_file():
+                  continue
+              if any(part in skip_parts for part in path.parts):
+                  continue
+              if path.suffix not in text_suffixes and path.name not in {'bin/sophia'}:
+                  continue
+              try:
+                  text = path.read_text(encoding='utf-8')
+              except UnicodeDecodeError:
+                  continue
+              original = text
+              for old, new in replacements:
+                  text = text.replace(old, new)
+              # Whole-command/token rename, but keep compatibility docs intelligible later.
+              text = re.sub(r'\bsvpn\b', 'sophia', text)
+              text = re.sub(r'\bSVPN\b', 'SOPHIA', text)
+              if text != original:
+                  path.write_text(text, encoding='utf-8')
+
+          # Rewrite package metadata precisely.
+          package_path = root / 'package.json'
+          if package_path.exists():
+              pkg = json.loads(package_path.read_text(encoding='utf-8'))
+              pkg['name'] = 'sophiavpn'
+              pkg['description'] = 'SophiaVPN macOS VPN and proxy client.'
+              pkg['main'] = 'main-macos.js'
+              pkg['productName'] = 'SophiaVPN'
+              scripts = pkg.setdefault('scripts', {})
+              scripts.pop('svpn', None)
+              scripts.pop('install:svpn', None)
+              scripts['sophia'] = 'bin/sophia'
+              scripts['install:sophia'] = './scripts/install-sophia.sh'
+              scripts['start'] = 'electron .'
+              scripts['install:desktop'] = './scripts/install.sh'
+              scripts['check'] = 'node --check cli.js && node --check bin/sophia.js && node --check bin/sophia-import.js && node --check bin/sophia-profile.js && bash -n bin/sophia && bash -n bin/svpn && bash -n scripts/macos-system-proxy.sh && bash -n scripts/macos-conflict-check.sh && node --check main-macos.js && node --check preload-macos.js && node --check renderer/app.js && node --check scripts/verify.js'
+              scripts['pack'] = 'electron-builder --mac dmg zip'
+              build = pkg.setdefault('build', {})
+              build['appId'] = 'com.sophia.vpn'
+              build['productName'] = 'SophiaVPN'
+              files = build.setdefault('files', [])
+              for needed in ['main-macos.js', 'cli.js', 'bin/**/*', 'preload-macos.js', 'package.json', 'renderer/**/*']:
+                  if needed not in files:
+                      files.append(needed)
+              build.pop('linux', None)
+              build['mac'] = {'category': 'public.app-category.utilities', 'target': ['dmg', 'zip']}
+              package_path.write_text(json.dumps(pkg, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          # Official CLI wrapper with macOS conflict detection.
+          (root / 'bin').mkdir(exist_ok=True)
+          (root / 'bin/sophia').write_text(r'''#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolve this wrapper's real path even when ~/.local/bin/sophia is a symlink.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR=$(cd -P "$(dirname "$SOURCE")" && pwd)
+  TARGET=$(readlink "$SOURCE")
+  if [[ "$TARGET" == /* ]]; then
+    SOURCE="$TARGET"
+  else
+    SOURCE="$DIR/$TARGET"
+  fi
+done
+APP_ROOT=$(cd "$(dirname "$SOURCE")/.." && pwd)
+JS="$APP_ROOT/bin/sophia.js"
+IMPORT_JS="$APP_ROOT/bin/sophia-import.js"
+PROFILE_JS="$APP_ROOT/bin/sophia-profile.js"
+MACOS_PROXY="$APP_ROOT/scripts/macos-system-proxy.sh"
+CONFLICT_CHECK="$APP_ROOT/scripts/macos-conflict-check.sh"
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+
+case "$ARCH" in
+  x86_64|amd64) CORE_ARCH="amd64" ;;
+  arm64|aarch64) CORE_ARCH="arm64" ;;
+  armv7l|armv7) CORE_ARCH="armv7" ;;
+  *) CORE_ARCH="$ARCH" ;;
+esac
+
+if [[ -z "${CLASH_CORE:-}" ]]; then
+  if [[ "$OS" == "Darwin" && -x "$APP_ROOT/resources/clash-binaries/mihomo-darwin-$CORE_ARCH" ]]; then
+    export CLASH_CORE="$APP_ROOT/resources/clash-binaries/mihomo-darwin-$CORE_ARCH"
+  elif [[ -x "$APP_ROOT/resources/clash-binaries/mihomo-linux-$CORE_ARCH" ]]; then
+    export CLASH_CORE="$APP_ROOT/resources/clash-binaries/mihomo-linux-$CORE_ARCH"
+  fi
+fi
+
+cmd="${1:-help}"
+
+run_node() {
+  node "$JS" "$@"
+}
+
+extract_ports() {
+  node -e '
+let raw = "";
+process.stdin.on("data", chunk => { raw += chunk; });
+process.stdin.on("end", () => {
+  try {
+    const data = JSON.parse(raw);
+    if (data && data.ports && data.ports.http && data.ports.socks) {
+      console.log(`${data.ports.http} ${data.ports.socks}`);
+      return;
+    }
+  } catch (_error) {}
+  process.exit(1);
+});
+'
+}
+
+format_http_state() {
+  local code="$1"
+  if [[ "$code" =~ ^[23][0-9][0-9]$ ]]; then
+    printf '可达 (HTTP %s)' "$code"
+  elif [[ "$code" == "401" ]]; then
+    printf '可达，需要认证 (HTTP 401)'
+  elif [[ "$code" == "403" ]]; then
+    printf '可达，但当前节点/服务拒绝访问 (HTTP 403)'
+  elif [[ "$code" =~ ^[45][0-9][0-9]$ ]]; then
+    printf '服务可达 (HTTP %s)' "$code"
+  else
+    printf '失败'
+  fi
+}
+
+test_url() {
+  local label="$1"
+  local url="$2"
+  local http_port="$3"
+  local code
+  code=$(
+    HTTP_PROXY="http://127.0.0.1:${http_port}" \
+    HTTPS_PROXY="http://127.0.0.1:${http_port}" \
+    ALL_PROXY="http://127.0.0.1:${http_port}" \
+    http_proxy="http://127.0.0.1:${http_port}" \
+    https_proxy="http://127.0.0.1:${http_port}" \
+    all_proxy="http://127.0.0.1:${http_port}" \
+    curl -sS -L -o /dev/null -w '%{http_code}' --max-time 25 "$url" 2>/dev/null || true
+  )
+  printf '%s：%s\n' "$label" "$(format_http_state "$code")"
+}
+
+current_ports() {
+  local status_json
+  status_json=$(run_node status --json 2>/dev/null || true)
+  printf '%s' "$status_json" | extract_ports 2>/dev/null || true
+}
+
+has_macos_conflicts() {
+  [[ "$OS" == "Darwin" && -x "$CONFLICT_CHECK" ]] || return 1
+  set +e
+  "$CONFLICT_CHECK" --quiet >/dev/null 2>&1
+  local code=$?
+  set -e
+  [[ "$code" == "10" ]]
+}
+
+print_macos_conflicts() {
+  [[ "$OS" == "Darwin" && -x "$CONFLICT_CHECK" ]] || return 0
+  "$CONFLICT_CHECK" status || true
+}
+
+macos_system_proxy() {
+  local action="$1"
+  local mode="${2:-manual}"
+  local force="${SOPHIA_FORCE_SYSTEM_PROXY:-0}"
+  if [[ "$OS" != "Darwin" ]]; then
+    return 0
+  fi
+  local ports http_port socks_port
+  ports=$(current_ports)
+  http_port="${ports%% *}"
+  socks_port="${ports##* }"
+  if [[ -z "${http_port:-}" || -z "${socks_port:-}" || ! -x "$MACOS_PROXY" ]]; then
+    echo 'macOS 系统代理：未配置（无法读取端口或 helper 不可执行）'
+    return 0
+  fi
+  case "$action" in
+    on|enable)
+      if [[ "$force" != "1" ]] && has_macos_conflicts; then
+        echo 'macOS 系统代理：检测到其他 VPN/代理/网络接入客户端，已跳过系统代理接管。'
+        print_macos_conflicts
+        echo 'SophiaVPN 本地 HTTP/SOCKS 代理仍在运行；可在终端、IDE 或指定应用中手动使用本地代理。'
+        echo '如确认要覆盖 macOS 系统代理，请先关闭冲突软件，或手动执行：SOPHIA_FORCE_SYSTEM_PROXY=1 sophia system-proxy on'
+        if [[ "$mode" == "auto" ]]; then
+          return 0
+        fi
+        return 2
+      fi
+      ;;
+  esac
+  "$MACOS_PROXY" "$action" "$http_port" "$socks_port"
+}
+
+case "$cmd" in
+  on)
+    shift || true
+    run_node start --proxy "$@"
+    run_node vscode on "$@"
+    macos_system_proxy on auto || true
+    echo 'SophiaVPN 一键开启完成。'
+    ;;
+  off)
+    shift || true
+    macos_system_proxy off manual || true
+    run_node vscode off "$@" || true
+    run_node proxy off "$@" || true
+    run_node stop "$@" || true
+    echo 'SophiaVPN 一键关闭完成。'
+    ;;
+  system-proxy)
+    shift || true
+    action="${1:-status}"
+    shift || true
+    for item in "$@"; do
+      if [[ "$item" == "--force" ]]; then
+        export SOPHIA_FORCE_SYSTEM_PROXY=1
+      fi
+    done
+    macos_system_proxy "$action" manual
+    ;;
+  conflicts|conflict|vpn-check)
+    shift || true
+    if [[ "$OS" == "Darwin" && -x "$CONFLICT_CHECK" ]]; then
+      "$CONFLICT_CHECK" "${1:-status}"
+    else
+      echo 'VPN/proxy conflict check is only available on macOS.'
+    fi
+    ;;
+  import)
+    shift || true
+    node "$IMPORT_JS" "$@"
+    if run_node status --json >/tmp/sophia-status-$$.json 2>/dev/null; then
+      if grep -q '"running": true' /tmp/sophia-status-$$.json; then
+        echo '检测到后台正在运行，正在重启以应用新订阅...'
+        run_node restart || true
+      fi
+    fi
+    rm -f /tmp/sophia-status-$$.json
+    ;;
+  profile)
+    subcmd="${2:-list}"
+    if [[ -x "$PROFILE_JS" && ( "$subcmd" == "rename" || "$subcmd" == "delete" || "$subcmd" == "remove" || "$subcmd" == "rm" ) ]]; then
+      shift || true
+      node "$PROFILE_JS" "$@"
+    else
+      exec node "$JS" "$@"
+    fi
+    ;;
+  test)
+    shift || true
+    run_node test "$@"
+    ports=$(current_ports)
+    http_port="${ports%% *}"
+    if [ -n "${http_port:-}" ]; then
+      test_url 'Claude' 'https://claude.ai' "$http_port"
+      test_url 'Anthropic API' 'https://api.anthropic.com' "$http_port"
+    else
+      echo 'Claude：未测试（无法读取当前 HTTP 端口）'
+      echo 'Anthropic API：未测试（无法读取当前 HTTP 端口）'
+    fi
+    ;;
+  doctor)
+    shift || true
+    run_node doctor "$@" || true
+    if [[ "$OS" == "Darwin" && -x "$CONFLICT_CHECK" ]]; then
+      echo
+      "$CONFLICT_CHECK" status || true
+    fi
+    ;;
+  help|--help|-h)
+    run_node help
+    echo
+    echo 'SophiaVPN wrapper:'
+    echo '  sophia on                         Start backend, terminal proxy, VS Code proxy, and macOS system proxy only when safe.'
+    echo '  sophia off                        Stop backend and remove user-level proxy integrations.'
+    echo '  sophia system-proxy on|off|status Manage macOS system proxy explicitly. Use --force only after closing conflicting tools.'
+    echo '  sophia conflicts                  Detect other VPN/proxy/network-access clients on macOS.'
+    echo '  sophia import                     Imports Clash/Mihomo YAML and URI subscriptions: ss, ssr, vmess, trojan, vless, hysteria2/hy2, tuic, snell.'
+    echo '  sophia profile rename <id> <name> Rename a saved subscription profile.'
+    echo '  sophia profile delete <id> --yes  Delete a saved subscription profile.'
+    echo '  sophia test                       Includes Claude and Anthropic API checks in addition to the core tests.'
+    ;;
+  *)
+    exec node "$JS" "$@"
+    ;;
+esac
+''', encoding='utf-8')
+
+          # Compatibility wrappers; official command is sophia.
+          (root / 'bin/svpn').write_text('''#!/usr/bin/env bash\nset -euo pipefail\nDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)\nexec "$DIR/sophia" "$@"\n''', encoding='utf-8')
+          (root / 'bin/svpn.js').write_text("#!/usr/bin/env node\nrequire('./sophia.js');\n", encoding='utf-8')
+          (root / 'bin/svpn-import.js').write_text("#!/usr/bin/env node\nrequire('./sophia-import.js');\n", encoding='utf-8')
+          (root / 'bin/svpn-profile.js').write_text("#!/usr/bin/env node\nrequire('./sophia-profile.js');\n", encoding='utf-8')
+          (root / 'scripts/install-svpn.sh').write_text('''#!/usr/bin/env bash\nset -euo pipefail\nDIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)\nexec "$DIR/install-sophia.sh" "$@"\n''', encoding='utf-8')
+
+          # Conflict detector. iNode-like tools are represented by a generic network-access/VPN category, not a product-specific exception.
+          (root / 'scripts/macos-conflict-check.sh').write_text(r'''#!/usr/bin/env bash
+set -euo pipefail
+
+ACTION="${1:-status}"
+OS="$(uname -s)"
+APP_ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
+
+if [[ "$OS" != "Darwin" ]]; then
+  echo 'VPN/proxy conflict check is only available on macOS.'
+  exit 0
+fi
+
+# category|display-name|case-insensitive-regex
+PATTERNS=(
+  'proxy-manager|Shadowrocket|Shadowrocket'
+  'proxy-manager|ClashX|ClashX'
+  'proxy-manager|Clash Verge|Clash[[:space:]]*Verge|Clash Verge|clash-verge'
+  'proxy-manager|Surge|Surge'
+  'proxy-manager|Stash|Stash'
+  'proxy-manager|Quantumult X|Quantumult|Quantumult X'
+  'proxy-manager|V2RayU|V2RayU|V2rayU'
+  'proxy-manager|Loon|Loon'
+  'proxy-manager|sing-box|sing-box|singbox'
+  'proxy-manager|other mihomo/clash client|clash|mihomo'
+  'vpn-client|ExpressVPN|ExpressVPN|expressvpn'
+  'vpn-client|OpenVPN|OpenVPN|openvpn'
+  'vpn-client|WireGuard|WireGuard|wireguard'
+  'vpn-client|Tailscale|Tailscale|tailscaled'
+  'vpn-client|ZeroTier|ZeroTier|zerotier'
+  'vpn-client|Cisco AnyConnect|AnyConnect|Cisco Secure Client|vpnagentd'
+  'vpn-client|GlobalProtect|GlobalProtect|PanGPS|PanGPA'
+  'vpn-client|FortiClient|FortiClient|fctservctl'
+  'vpn-client|Pulse Secure / Ivanti|Pulse Secure|Ivanti Secure|Junos Pulse'
+  'network-access-vpn|network access / campus VPN client|iNode|inode|EasyConnect|ECAgent|Sangfor|ArraySSLVPN|MotionPro'
+)
+
+skip_own_process() {
+  local command="$1"
+  case "$command" in
+    *"$APP_ROOT"*) return 0 ;;
+    *".config/SophiaVPN"*) return 0 ;;
+    *"SophiaVPN.app"*) return 0 ;;
+    *"bin/sophia"*) return 0 ;;
+    *"macos-conflict-check.sh"*) return 0 ;;
+  esac
+  return 1
+}
+
+process_table() {
+  ps ax -o pid= -o comm= -o args= 2>/dev/null || true
+}
+
+matches=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] || continue
+  pid="$(awk '{print $1}' <<<"$line")"
+  command="${line#${pid}}"
+  if skip_own_process "$command"; then
+    continue
+  fi
+  for spec in "${PATTERNS[@]}"; do
+    IFS='|' read -r category name pattern <<<"$spec"
+    if grep -Eiq "$pattern" <<<"$command"; then
+      matches+=("$category|$name|$pid|$(sed 's/^ *//' <<<"$command")")
+      break
+    fi
+  done
+done < <(process_table)
+
+if [[ "$ACTION" == "--quiet" || "$ACTION" == "quiet" ]]; then
+  if (( ${#matches[@]} > 0 )); then
+    exit 10
+  fi
+  exit 0
+fi
+
+if (( ${#matches[@]} == 0 )); then
+  echo 'macOS VPN/proxy conflict check: no known conflicting VPN/proxy clients detected.'
+  exit 0
+fi
+
+cat <<'EOF'
+macOS VPN/proxy conflict warning:
+Detected other VPN/proxy/network-access clients. SophiaVPN will not automatically take over macOS system proxy while these processes are present.
+
+Detected processes:
+EOF
+
+for item in "${matches[@]}"; do
+  IFS='|' read -r category name pid command <<<"$item"
+  printf '  - %s [%s], pid=%s\n    %s\n' "$name" "$category" "$pid" "$command"
+done
+
+cat <<'EOF'
+
+Policy:
+  - proxy-manager: likely manages local proxy ports or macOS system proxy; do not use automatic system-proxy takeover together.
+  - vpn-client: may manage routes, DNS, kill-switch, or tunnel devices; SophiaVPN local proxy can run, but automatic system proxy is skipped.
+  - network-access-vpn: campus/company/network-access clients may coexist with local proxy usage, but SophiaVPN still avoids automatic system-proxy takeover to prevent breaking access policy.
+
+Use SophiaVPN in local-proxy mode, or close the detected software before enabling macOS system proxy.
+EOF
+
+exit 10
+''', encoding='utf-8')
+
+          # Install script: official app and CLI names. Keep compatibility symlink for svpn.
+          install_path = root / 'scripts/install-sophia.sh'
+          if install_path.exists():
+              text = install_path.read_text(encoding='utf-8')
+              text = text.replace('APP_ID="sophiavpn"', 'APP_ID="sophiavpn"')
+              text = text.replace('APP_NAME="SophiaVPN"', 'APP_NAME="SophiaVPN"')
+              text = text.replace('$ROOT_DIR/scripts/install-sophia.sh', '$ROOT_DIR/scripts/install-sophia.sh')
+              text = text.replace('Launch command: $WRAPPER', 'Launch command: $WRAPPER')
+              text = text.replace('Note: TUN mode is not enabled in this macOS branch; use proxy-only mode.', 'Note: TUN mode is not enabled; SophiaVPN uses proxy-only mode by default.')
+              # Add CLI symlink if absent.
+              if 'SOPHIA_CLI="$BIN_DIR/sophia"' not in text:
+                  text = text.replace('WRAPPER="$BIN_DIR/$APP_ID"', 'WRAPPER="$BIN_DIR/$APP_ID"\nSOPHIA_CLI="$BIN_DIR/sophia"\nSVPN_COMPAT="$BIN_DIR/svpn"')
+                  text = text.replace('chmod +x "$WRAPPER"', 'chmod +x "$WRAPPER"\nln -sfn "$ROOT_DIR/bin/sophia" "$SOPHIA_CLI"\nln -sfn "$ROOT_DIR/bin/svpn" "$SVPN_COMPAT"')
+              install_path.write_text(text, encoding='utf-8')
+
+          # Documentation: official SophiaVPN docs with conflict policy.
+          readme = '''# SophiaVPN
+
+[English](README.md) | [中文](README.zh-CN.md)
+
+SophiaVPN is a macOS-focused VPN and proxy client derived from the former SilverVPN macOS branch. It is now developed as an independent project because its product direction and macOS system-integration strategy are different from the Linux/server-oriented SilverVPN project.
+
+SophiaVPN focuses on a safe proxy-only workflow for macOS:
+
+- local mihomo HTTP/SOCKS proxy;
+- desktop controller for macOS;
+- `sophia` command-line workflow;
+- subscription import and profile management;
+- node switching and delay tests;
+- terminal proxy integration;
+- VS Code proxy integration;
+- explicit macOS system proxy integration;
+- VPN/proxy conflict detection before system-proxy takeover.
+
+## Quick install
+
+```bash
+git clone https://github.com/Silver-Zhang/SophiaVPN.git
+cd SophiaVPN
+chmod +x scripts/*.sh bin/sophia
+./scripts/install.sh
+./scripts/install-sophia.sh
+```
+
+The installer creates:
+
+```text
+~/.local/bin/sophiavpn
+~/.local/bin/sophia
+~/.local/bin/svpn          # compatibility alias
+~/Applications/SophiaVPN.app
+~/.config/SophiaVPN/
+```
+
+## CLI
+
+```bash
+sophia import '<subscription-url-or-file>' 'My Profile'
+sophia on
+sophia status
+sophia test
+sophia off
+```
+
+## Conflict policy
+
+SophiaVPN can run its local HTTP/SOCKS proxy while other network clients are present, but it will not automatically take over macOS system proxy if it detects other VPN/proxy/network-access software.
+
+Detected examples include proxy managers such as Shadowrocket, ClashX/Clash Verge, Surge, sing-box and V2RayU, and VPN/network-access clients such as ExpressVPN, OpenVPN, WireGuard, Tailscale, GlobalProtect, AnyConnect, FortiClient, EasyConnect, iNode-like campus/company access clients, and similar tools.
+
+The rule is generic: network-access clients may coexist with SophiaVPN local-proxy usage, but automatic system-proxy takeover is skipped to avoid breaking existing VPN, DNS, routing, or access-control policy.
+
+Check manually:
+
+```bash
+sophia conflicts
+sophia doctor
+```
+
+Force system proxy only after closing or intentionally overriding conflicting tools:
+
+```bash
+SOPHIA_FORCE_SYSTEM_PROXY=1 sophia system-proxy on
+# or
+sophia system-proxy on --force
+```
+
+## Safety scope
+
+TUN mode is not enabled in SophiaVPN. It does not intentionally create tunnel interfaces, pf rules, route-table rules, or DNS takeover. The default workflow is local proxy plus optional system proxy.
+'''
+          (root / 'README.md').write_text(readme, encoding='utf-8')
+
+          readme_zh = '''# SophiaVPN
+
+[English](README.md) | [中文](README.zh-CN.md)
+
+SophiaVPN 是一个面向 macOS 的 VPN 与代理客户端，来源于原 SilverVPN 的 macOS 分支。它现在作为独立项目开发，因为 macOS 桌面客户端的产品定位、系统代理策略和冲突处理逻辑，与 Linux/服务器方向的 SilverVPN 已经不同。
+
+SophiaVPN 当前采用安全优先的 proxy-only 工作流：
+
+- 本地 mihomo HTTP/SOCKS 代理；
+- macOS 桌面控制器；
+- `sophia` 命令行工具；
+- 订阅导入与 profile 管理；
+- 节点切换与延迟测试；
+- 终端代理集成；
+- VS Code 代理集成；
+- 显式 macOS 系统代理集成；
+- 在接管系统代理前检测其他 VPN/代理/网络接入客户端。
+
+## 快速安装
+
+```bash
+git clone https://github.com/Silver-Zhang/SophiaVPN.git
+cd SophiaVPN
+chmod +x scripts/*.sh bin/sophia
+./scripts/install.sh
+./scripts/install-sophia.sh
+```
+
+安装后会创建：
+
+```text
+~/.local/bin/sophiavpn
+~/.local/bin/sophia
+~/.local/bin/svpn          # 兼容旧命令
+~/Applications/SophiaVPN.app
+~/.config/SophiaVPN/
+```
+
+## CLI
+
+```bash
+sophia import '<订阅链接或文件>' '我的方案'
+sophia on
+sophia status
+sophia test
+sophia off
+```
+
+## 冲突检测策略
+
+SophiaVPN 可以在其他网络客户端存在时运行本地 HTTP/SOCKS 代理，但如果检测到其他 VPN/代理/网络接入软件，它不会自动接管 macOS 系统代理。
+
+会检测的典型对象包括 Shadowrocket、ClashX/Clash Verge、Surge、sing-box、V2RayU 等代理管理器，以及 ExpressVPN、OpenVPN、WireGuard、Tailscale、GlobalProtect、AnyConnect、FortiClient、EasyConnect、iNode 类校园/企业网络接入客户端和类似工具。
+
+这里不对某一个软件做特殊化处理。通用原则是：网络接入客户端可以和 SophiaVPN 的本地代理模式共存，但 SophiaVPN 会跳过自动系统代理接管，以避免破坏已有 VPN、DNS、路由或准入策略。
+
+手动检查：
+
+```bash
+sophia conflicts
+sophia doctor
+```
+
+只有在你确认要覆盖系统代理，并且已经关闭或接受冲突风险时，才强制开启系统代理：
+
+```bash
+SOPHIA_FORCE_SYSTEM_PROXY=1 sophia system-proxy on
+# 或
+sophia system-proxy on --force
+```
+
+## 安全范围
+
+SophiaVPN 当前不启用 TUN，不主动创建隧道网卡、pf 规则、路由表规则或 DNS 接管。默认工作流是本地代理，并在安全条件满足时才进行可选系统代理设置。
+'''
+          (root / 'README.zh-CN.md').write_text(readme_zh, encoding='utf-8')
+
+          # Append conflict section to macOS guides if present.
+          for doc in ['docs/macos-guide.md', 'docs/macos-guide.zh-CN.md', 'INSTALL_USAGE_GUIDE.md', 'MIGRATION.md']:
+              path = root / doc
+              if not path.exists():
+                  continue
+              text = path.read_text(encoding='utf-8')
+              if 'SophiaVPN conflict policy' in text or 'SophiaVPN 冲突检测策略' in text:
+                  continue
+              if doc.endswith('.zh-CN.md') or doc == 'INSTALL_USAGE_GUIDE.md':
+                  text += '''\n\n## SophiaVPN 冲突检测策略\n\nSophiaVPN 会检测其他 VPN/代理/网络接入客户端。检测到这类进程时，`sophia on` 仍可启动本地代理、终端代理和 VS Code 代理，但会跳过自动 macOS 系统代理接管，并打印具体冲突软件、类别和进程信息。\n\n该策略不针对某一个专用软件做特殊化处理。校园网、企业网或类似网络接入客户端可以作为本地代理共存场景，但 SophiaVPN 不会在检测到它们时自动覆盖系统代理。\n\n```bash\nsophia conflicts\nsophia system-proxy on --force\n```\n'''
+              else:
+                  text += '''\n\n## SophiaVPN conflict policy\n\nSophiaVPN detects other VPN/proxy/network-access clients. When such processes are present, `sophia on` may still start the local proxy, terminal proxy and VS Code proxy, but it skips automatic macOS system-proxy takeover and prints the conflicting software, category and process information.\n\nThis policy is generic and is not a product-specific exception. Campus, enterprise, or similar network-access clients can be treated as local-proxy coexistence cases, but SophiaVPN does not automatically override system proxy while they are detected.\n\n```bash\nsophia conflicts\nsophia system-proxy on --force\n```\n'''
+              path.write_text(text, encoding='utf-8')
+
+          # Make sure executable bits are set in the working tree before commit.
+          for rel in [
+              'bin/sophia', 'bin/svpn', 'bin/sophia.js', 'bin/sophia-import.js', 'bin/sophia-profile.js',
+              'bin/svpn.js', 'bin/svpn-import.js', 'bin/svpn-profile.js',
+              'scripts/install.sh', 'scripts/install-sophia.sh', 'scripts/install-svpn.sh',
+              'scripts/macos-system-proxy.sh', 'scripts/macos-conflict-check.sh', 'scripts/install-core.sh',
+              'scripts/install-electron.sh', 'scripts/update.sh', 'scripts/core-watchdog.sh'
+          ]:
+              p = root / rel
+              if p.exists():
+                  p.chmod(p.stat().st_mode | 0o755)
+          PY
+
+          npm run check
+
+      - name: Commit step 3
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "feat: productize SophiaVPN and add macOS conflict warnings"
+            git push origin HEAD:main
+          fi
