@@ -2,8 +2,12 @@
 
 const { contextBridge, ipcRenderer } = require('electron');
 
-contextBridge.exposeInMainWorld('silverVPN', {
+const api = {
   invoke(action, payload = {}) {
-    return ipcRenderer.invoke('SILVERVPN_MACOS', action, payload);
+    return ipcRenderer.invoke('SOPHIAVPN_MACOS', action, payload);
   }
-});
+};
+
+contextBridge.exposeInMainWorld('sophiaVPN', api);
+// Backward-compatible alias for the migrated UI code.
+contextBridge.exposeInMainWorld('silverVPN', api);
