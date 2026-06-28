@@ -1,206 +1,1068 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
   <meta charset="utf-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>SophiaVPN</title>
   <style>
-    :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
-    body { margin: 0; background: #f5f5f7; color: #1d1d1f; }
-    header { padding: 22px 28px; background: #ffffff; border-bottom: 1px solid #d2d2d7; }
-    h1 { margin: 0; font-size: 26px; }
-    header p { margin: 8px 0 0; color: #6e6e73; }
-    main { padding: 24px 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
-    section { background: #ffffff; border: 1px solid #d2d2d7; border-radius: 14px; padding: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
-    section.full { grid-column: 1 / -1; }
-    h2 { margin: 0 0 12px; font-size: 18px; }
-    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
-    button { border: 0; border-radius: 9px; padding: 8px 12px; background: #0a84ff; color: white; font-weight: 600; cursor: pointer; }
-    button.secondary { background: #e8e8ed; color: #1d1d1f; }
-    button.danger { background: #ff453a; }
-    input, select { border: 1px solid #c7c7cc; border-radius: 8px; padding: 8px 10px; min-width: 180px; background: #fff; color: #1d1d1f; }
-    input.long { min-width: 360px; flex: 1; }
-    pre { white-space: pre-wrap; word-break: break-word; background: #1e1e1e; color: #f5f5f7; padding: 14px; border-radius: 10px; max-height: 260px; overflow: auto; }
-    .status { display: grid; grid-template-columns: 140px 1fr; gap: 8px 12px; font-size: 14px; }
-    .muted { color: #6e6e73; }
-    .ok { color: #248a3d; font-weight: 700; }
-    .bad { color: #d70015; font-weight: 700; }
+    :root {
+      color-scheme: light;
+      --bg: #f5f6f8;
+      --surface: #ffffff;
+      --surface-soft: #f8f9fc;
+      --text: #17181d;
+      --muted: #6c7280;
+      --subtle: #969daa;
+      --line: #dee2ea;
+      --line-strong: #cbd1dc;
+      --pink: #e83f83;
+      --pink-strong: #c7286c;
+      --pink-soft: #fff0f7;
+      --blue: #2368e8;
+      --blue-soft: #eef4ff;
+      --green: #14804a;
+      --green-soft: #eaf8f0;
+      --amber: #a56200;
+      --amber-soft: #fff6e4;
+      --red: #c6283d;
+      --red-soft: #fff0f2;
+      --shadow: 0 18px 50px rgba(25, 32, 56, 0.08);
+      --shadow-soft: 0 8px 24px rgba(25, 32, 56, 0.06);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { min-height: 100%; overflow-x: hidden; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 14% 10%, rgba(232, 63, 131, 0.10), transparent 25%),
+        radial-gradient(circle at 88% 20%, rgba(35, 104, 232, 0.08), transparent 24%),
+        linear-gradient(180deg, #fbfbfd 0%, var(--bg) 54%, #eff1f5 100%);
+      color: var(--text);
+      font-size: 14px;
+    }
+
+    .app-shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 244px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      gap: 22px;
+      padding: 28px 16px 18px;
+      background: rgba(255, 255, 255, 0.76);
+      border-right: 1px solid rgba(213, 217, 226, 0.82);
+      backdrop-filter: blur(18px);
+    }
+
+    .brand { display: flex; align-items: center; gap: 12px; padding: 2px 8px 14px; }
+    .brand-mark {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(145deg, #ff74ad, #e52d7c);
+      box-shadow: 0 10px 24px rgba(232, 63, 131, 0.28);
+      color: #fff;
+      font-size: 24px;
+      line-height: 1;
+    }
+    .brand-title { margin: 0; font-size: 23px; font-weight: 780; letter-spacing: 0; }
+    .brand-subtitle { margin: 3px 0 0; color: var(--muted); font-size: 12px; }
+
+    .nav { display: grid; gap: 6px; }
+    .nav-item {
+      width: 100%;
+      min-height: 44px;
+      justify-content: flex-start;
+      padding: 0 12px;
+      color: #343842;
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      font-size: 14px;
+      font-weight: 680;
+    }
+    .nav-item.active {
+      background: linear-gradient(90deg, rgba(232, 63, 131, 0.16), rgba(232, 63, 131, 0.06));
+      color: var(--pink-strong);
+    }
+    .nav-icon {
+      width: 18px;
+      height: 18px;
+      border: 1.8px solid currentColor;
+      border-radius: 5px;
+      display: inline-block;
+      position: relative;
+      opacity: 0.92;
+      flex: 0 0 auto;
+    }
+    .nav-item.active .nav-icon::after {
+      content: "";
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: currentColor;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    }
+    .sidebar-footer { margin-top: auto; display: grid; gap: 10px; padding: 12px 10px 0; color: var(--muted); font-size: 12px; }
+    .health-line { display: flex; align-items: center; gap: 8px; }
+
+    .main { min-width: 0; padding: 24px 72px 30px 28px; }
+    .topbar { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 18px; }
+    .page-title { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: 0; }
+    .page-subtitle { margin: 6px 0 0; color: var(--muted); line-height: 1.45; max-width: 780px; }
+    .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+    .view { display: none; }
+    .view.active { display: block; }
+    .grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr); gap: 16px; align-items: start; }
+    .stack { display: grid; gap: 16px; min-width: 0; }
+    .two-up { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.88);
+      border: 1px solid rgba(211, 216, 226, 0.88);
+      border-radius: 8px;
+      box-shadow: var(--shadow-soft);
+      min-width: 0;
+    }
+    .panel-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px 18px 0;
+    }
+    .panel-title { margin: 0; font-size: 16px; font-weight: 780; letter-spacing: 0; }
+    .panel-subtitle { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 1.4; }
+    .panel-body { padding: 16px 18px 18px; }
+    .connection-panel {
+      min-height: 324px;
+      background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 251, 0.86));
+      box-shadow: var(--shadow);
+    }
+    .connection-layout { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 18px; align-items: center; }
+
+    .state-orbit {
+      width: 118px;
+      height: 118px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: conic-gradient(from 220deg, rgba(232, 63, 131, 0.40), rgba(35, 104, 232, 0.12), rgba(232, 63, 131, 0.40));
+      position: relative;
+    }
+    .state-orbit::before {
+      content: "";
+      position: absolute;
+      inset: 8px;
+      border-radius: inherit;
+      background: var(--surface);
+      box-shadow: inset 0 0 0 1px var(--line);
+      z-index: 1;
+    }
+    .state-orbit::after {
+      content: "";
+      position: absolute;
+      inset: -2px;
+      border-radius: inherit;
+      border: 3px solid transparent;
+      border-top-color: var(--pink);
+      border-right-color: rgba(35, 104, 232, 0.42);
+      opacity: 0;
+      z-index: 0;
+    }
+    .state-orbit.is-running::after, .state-orbit.is-busy::after {
+      opacity: 1;
+      animation: spin 1.05s linear infinite;
+    }
+    .state-core {
+      position: relative;
+      z-index: 2;
+      width: 38px;
+      height: 38px;
+      border-radius: 9px;
+      background: linear-gradient(145deg, #a7adb8, #747b89);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.45);
+    }
+    .state-orbit.is-running .state-core { background: linear-gradient(145deg, #ff70aa, #df2f7d); }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .state-headline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+    .state-headline h2 { margin: 0; font-size: 30px; font-weight: 820; letter-spacing: 0; }
+    .state-copy { color: var(--muted); margin: 0 0 18px; line-height: 1.48; }
+    .status-dot { width: 9px; height: 9px; border-radius: 999px; background: var(--subtle); display: inline-block; }
+    .status-dot.ok { background: var(--green); }
+    .status-dot.warn { background: var(--amber); }
+    .status-dot.bad { background: var(--red); }
+
+    .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .metric { min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,0.76); }
+    .metric-label { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
+    .metric-value { font-weight: 740; overflow-wrap: anywhere; }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      min-height: 38px;
+      padding: 0 14px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 740;
+      cursor: pointer;
+      color: #fff;
+      background: var(--blue);
+      box-shadow: 0 8px 18px rgba(35, 104, 232, 0.18);
+      transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, opacity 140ms ease;
+      white-space: nowrap;
+    }
+    button:hover { transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    button:disabled { cursor: default; opacity: 0.58; transform: none; box-shadow: none; }
+    button.primary { min-width: 166px; background: linear-gradient(135deg, #f04c91, #d92c78); box-shadow: 0 12px 26px rgba(232, 63, 131, 0.28); }
+    button.secondary { background: #f1f3f7; color: #222631; box-shadow: none; border: 1px solid var(--line); }
+    button.danger { background: #fff0f2; color: var(--red); border: 1px solid #ffd0d7; box-shadow: none; }
+    button.ghost { background: transparent; color: var(--muted); border: 1px solid transparent; box-shadow: none; }
+    .icon { width: 15px; height: 15px; display: inline-block; position: relative; flex: 0 0 auto; }
+    .icon.play::before { content: ""; position: absolute; inset: 2px 1px 2px 4px; background: currentColor; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+    .icon.square::before { content: ""; position: absolute; inset: 3px; border-radius: 3px; background: currentColor; }
+    .icon.refresh::before { content: ""; position: absolute; inset: 2px; border: 2px solid currentColor; border-left-color: transparent; border-radius: 999px; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 24px;
+      border-radius: 999px;
+      padding: 0 9px;
+      font-size: 12px;
+      font-weight: 740;
+      color: var(--muted);
+      background: #f0f2f6;
+      white-space: nowrap;
+    }
+    .chip.ok { color: var(--green); background: var(--green-soft); }
+    .chip.warn { color: var(--amber); background: var(--amber-soft); }
+    .chip.bad { color: var(--red); background: var(--red-soft); }
+    .chip.pink { color: var(--pink-strong); background: var(--pink-soft); }
+
+    input, select, textarea {
+      width: 100%;
+      min-width: 0;
+      min-height: 38px;
+      border: 1px solid var(--line-strong);
+      border-radius: 8px;
+      padding: 0 12px;
+      background: #fff;
+      color: var(--text);
+      font: inherit;
+      font-size: 13px;
+      outline: none;
+      transition: border-color 140ms ease, box-shadow 140ms ease;
+    }
+    textarea { padding: 10px 12px; resize: vertical; min-height: 92px; }
+    input:focus, select:focus, textarea:focus { border-color: rgba(232, 63, 131, 0.62); box-shadow: 0 0 0 3px rgba(232, 63, 131, 0.12); }
+
+    .segmented { display: inline-grid; grid-template-columns: repeat(3, minmax(80px, 1fr)); padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: #f2f4f8; gap: 3px; }
+    .segmented button { min-height: 32px; background: transparent; color: var(--muted); border: 0; box-shadow: none; padding: 0 10px; }
+    .segmented button.active { background: #fff; color: var(--pink-strong); box-shadow: 0 3px 12px rgba(35, 43, 65, 0.08); }
+
+    .node-tools { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr) auto auto; gap: 10px; align-items: center; }
+    .profile-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto auto; gap: 10px; align-items: center; }
+    .node-list, .profile-list, .event-list { display: grid; gap: 8px; max-height: 520px; overflow: auto; padding-right: 4px; }
+    .node-row, .profile-row, .proxy-row, .conflict-row, .event-row {
+      display: grid;
+      gap: 10px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.82);
+      min-width: 0;
+    }
+    .node-row { grid-template-columns: 46px minmax(0, 1fr) auto auto; }
+    .profile-row { grid-template-columns: minmax(0, 1fr) auto; }
+    .proxy-row { grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1fr) auto; }
+    .conflict-row { grid-template-columns: minmax(0, 1fr) auto; }
+    .event-row { align-items: start; }
+    .node-row.selected, .profile-row.selected { border-color: rgba(232, 63, 131, 0.42); background: var(--pink-soft); }
+    .row-index { color: var(--muted); font-weight: 760; }
+    .row-title { font-weight: 760; overflow-wrap: anywhere; }
+    .row-subtitle { margin-top: 3px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+    .row-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+    .row-actions button { min-height: 32px; padding: 0 10px; }
+    .empty { padding: 22px; color: var(--muted); text-align: center; border: 1px dashed var(--line-strong); border-radius: 8px; background: rgba(255,255,255,0.58); }
+
+    .delay { min-width: 76px; justify-content: center; }
+    .delay.good { color: var(--green); background: var(--green-soft); }
+    .delay.slow { color: var(--amber); background: var(--amber-soft); }
+    .delay.bad { color: var(--red); background: var(--red-soft); }
+    .summary-card {
+      display: grid;
+      gap: 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 14px;
+      background: rgba(255,255,255,0.78);
+    }
+    .summary-card.ok { border-color: rgba(20, 128, 74, 0.24); background: var(--green-soft); }
+    .summary-card.warn { border-color: rgba(165, 98, 0, 0.24); background: var(--amber-soft); }
+    .summary-card.bad { border-color: rgba(198, 40, 61, 0.24); background: var(--red-soft); }
+    .summary-title { font-weight: 780; }
+    .summary-copy { color: var(--muted); line-height: 1.45; }
+    .proxy-list { display: grid; gap: 10px; }
+    .proxy-status { justify-self: end; }
+
+    .output-box {
+      min-height: 118px;
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, #fbfcfe, #f7f8fb);
+      color: #383d49;
+      line-height: 1.5;
+      overflow-wrap: anywhere;
+    }
+    .footer-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 18px 16px; border-top: 1px solid var(--line); }
+
+    #busy { visibility: hidden; }
+    #busy.show { visibility: visible; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      display: none;
+      place-items: center;
+      padding: 20px;
+      background: rgba(15, 18, 26, 0.38);
+      backdrop-filter: blur(8px);
+    }
+    .modal-backdrop.open { display: grid; }
+    .modal {
+      width: min(560px, 100%);
+      border: 1px solid rgba(211, 216, 226, 0.92);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: 0 24px 70px rgba(18, 24, 38, 0.24);
+      overflow: hidden;
+    }
+    .modal-header { padding: 18px 18px 0; }
+    .modal-title { margin: 0; font-size: 18px; font-weight: 800; }
+    .modal-copy { margin: 7px 0 0; color: var(--muted); line-height: 1.45; }
+    .modal-body { display: grid; gap: 12px; padding: 16px 18px; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 0 18px 18px; }
+    .url-box { padding: 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-soft); overflow-wrap: anywhere; user-select: text; }
+
+    @media (max-width: 1080px) {
+      .app-shell { grid-template-columns: 1fr; }
+      .sidebar { position: static; height: auto; flex-direction: row; align-items: center; padding: 16px 20px; overflow-x: auto; }
+      .brand { padding: 0; min-width: 210px; }
+      .nav { display: flex; min-width: max-content; }
+      .nav-item { width: auto; }
+      .sidebar-footer { display: none; }
+      .grid { grid-template-columns: 1fr; }
+      .main { padding-right: 28px; }
+    }
+    @media (max-width: 760px) {
+      .main { padding: 18px 14px 24px; }
+      .sidebar { padding: 14px 16px; flex-direction: column; align-items: stretch; overflow-x: hidden; gap: 12px; }
+      .brand { min-width: 0; }
+      .nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); min-width: 0; width: 100%; }
+      .nav-item { min-width: 0; white-space: normal; align-items: center; }
+      .topbar { display: grid; }
+      .toolbar { justify-content: stretch; }
+      .toolbar button { flex: 1; }
+      .connection-layout { grid-template-columns: 1fr; }
+      .state-orbit { width: 98px; height: 98px; }
+      .state-headline h2 { font-size: 24px; }
+      .metrics, .two-up, .node-tools, .profile-tools, .node-row, .proxy-row, .conflict-row { grid-template-columns: 1fr; }
+      .node-row, .profile-row { align-items: start; }
+      .row-actions, .proxy-status { justify-content: flex-start; justify-self: start; }
+      .segmented { width: 100%; }
+    }
     @media (prefers-color-scheme: dark) {
-      body { background: #111; color: #f5f5f7; }
-      header, section { background: #1c1c1e; border-color: #38383a; }
-      input, select { background: #2c2c2e; color: #f5f5f7; border-color: #48484a; }
-      button.secondary { background: #3a3a3c; color: #f5f5f7; }
-      .muted { color: #a1a1a6; }
+      :root {
+        color-scheme: dark;
+        --bg: #11131a;
+        --surface: #1d212b;
+        --surface-soft: #202531;
+        --text: #f3f5fa;
+        --muted: #a5adbd;
+        --subtle: #778093;
+        --line: #303645;
+        --line-strong: #3a4152;
+        --shadow: 0 18px 50px rgba(0,0,0,0.28);
+        --shadow-soft: 0 8px 24px rgba(0,0,0,0.18);
+      }
+      body { background: #11131a; }
+      .sidebar, .panel, .modal { background: rgba(29, 33, 43, 0.92); }
+      .connection-panel { background: linear-gradient(135deg, rgba(29,33,43,0.98), rgba(38,27,42,0.86)); }
+      .metric, .node-row, .profile-row, .proxy-row, .conflict-row, .event-row, input, select, textarea, .summary-card { background: var(--surface); }
+      button.secondary { background: #252b37; color: var(--text); }
+      .segmented { background: #171b24; }
+      .segmented button.active { background: #262c38; }
+      .output-box { background: #171b24; color: #e4e7ef; }
     }
   </style>
 </head>
 <body>
-  <header>
-    <h1>SophiaVPN</h1>
-    <p>macOS proxy-only VPN/proxy controller for mihomo subscriptions. TUN is disabled; system proxy is conflict-aware.</p>
-  </header>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">♥</div>
+        <div>
+          <h1 class="brand-title">SophiaVPN</h1>
+          <p class="brand-subtitle">macOS 代理控制台</p>
+        </div>
+      </div>
+      <nav class="nav" aria-label="SophiaVPN sections">
+        <button class="nav-item active" type="button" data-view="dashboard"><span class="nav-icon"></span>仪表盘 / Dashboard</button>
+        <button class="nav-item" type="button" data-view="nodes"><span class="nav-icon"></span>节点 / Nodes</button>
+        <button class="nav-item" type="button" data-view="profiles"><span class="nav-icon"></span>订阅 / Profiles</button>
+        <button class="nav-item" type="button" data-view="logs"><span class="nav-icon"></span>日志 / Logs</button>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="health-line"><span class="status-dot ok"></span>本地配置已就绪</div>
+        <div>v0.1.0 · Proxy-only mode</div>
+      </div>
+    </aside>
 
-  <main>
-    <section>
-      <h2>Connection</h2>
-      <div class="status" id="statusBox"></div>
-      <div class="row">
-        <button onclick="runAction('on')">Turn On</button>
-        <button class="danger" onclick="runAction('off')">Turn Off</button>
-        <button class="secondary" onclick="refresh()">Refresh</button>
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <h2 id="pageTitle" class="page-title">仪表盘 / Dashboard</h2>
+          <p id="pageSubtitle" class="page-subtitle">启动会同时接管系统代理和终端代理；如果被其他软件占用，SophiaVPN 会直接失败并告诉你原因。</p>
+        </div>
+        <div class="toolbar">
+          <span id="busy" class="chip pink">处理中 / Working</span>
+          <button class="secondary" type="button" onclick="refresh()"><span class="icon refresh"></span>刷新 / Refresh</button>
+        </div>
       </div>
-      <div class="row">
-        <button class="secondary" onclick="runAction('test')">Connectivity Test</button>
-        <button class="secondary" onclick="runAction('system-proxy-status')">System Proxy Status</button>
-        <button class="secondary" onclick="runAction('conflicts')">Conflict Check</button>
-      </div>
-    </section>
 
-    <section>
-      <h2>Import Subscription</h2>
-      <div class="row">
-        <input class="long" id="subscription" placeholder="Subscription URL or local config path" />
-      </div>
-      <div class="row">
-        <input id="profileName" placeholder="Profile name" value="My Profile" />
-        <button onclick="importProfile()">Import</button>
-      </div>
-      <p class="muted">Do not paste private subscription URLs into public logs, screenshots, issues or documentation.</p>
-    </section>
+      <section id="view-dashboard" class="view active">
+        <div class="grid">
+          <div class="stack">
+            <section class="panel connection-panel">
+              <div class="panel-body">
+                <div class="connection-layout">
+                  <div id="stateOrbit" class="state-orbit" aria-hidden="true"><div class="state-core"></div></div>
+                  <div>
+                    <div class="state-headline">
+                      <h2 id="runtimeHeadline">未运行 / Stopped</h2>
+                      <span id="runtimeDot" class="status-dot bad"></span>
+                      <span id="runtimeChip" class="chip bad">未运行 / Stopped</span>
+                    </div>
+                    <p id="runtimeCopy" class="state-copy">SophiaVPN 当前未接管代理。点击“启动”后会完整接管系统代理和终端代理。</p>
+                    <div class="metrics" id="statusBox"></div>
+                    <div class="actions">
+                      <button class="primary" type="button" onclick="runAction('on')"><span class="icon play"></span>启动 / Start</button>
+                      <button class="danger" type="button" onclick="runAction('off')"><span class="icon square"></span>关闭 / Stop</button>
+                      <button class="secondary" type="button" onclick="runAction('test')">连通性测试 / Test</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3 class="panel-title">代理占用 / Proxy Ownership</h3>
+                  <p class="panel-subtitle">清楚显示系统代理和终端代理现在指向谁。</p>
+                </div>
+                <button class="secondary" type="button" onclick="runAction('system-proxy-status')">检查 / Check</button>
+              </div>
+              <div class="panel-body">
+                <div id="proxyOwnership" class="proxy-list"></div>
+              </div>
+            </section>
+          </div>
+          <div class="stack">
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3 class="panel-title">当前节点 / Current Node</h3>
+                  <p class="panel-subtitle">节点和模式可以在“节点”页面完整管理。</p>
+                </div>
+                <button class="secondary" type="button" onclick="showView('nodes')">管理节点 / Nodes</button>
+              </div>
+              <div class="panel-body">
+                <div id="currentNodeCard" class="summary-card"></div>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3 class="panel-title">冲突检查 / Conflict Check</h3>
+                  <p class="panel-subtitle">判断是否有其他 VPN 或代理客户端可能抢占代理。</p>
+                </div>
+                <button class="secondary" type="button" onclick="runAction('conflicts')">重新检查 / Recheck</button>
+              </div>
+              <div class="panel-body">
+                <div id="conflictSummary" class="summary-card"></div>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
+                  <h3 class="panel-title">最近输出 / Latest Output</h3>
+                  <p class="panel-subtitle">详细操作记录在“日志”页面。</p>
+                </div>
+                <button class="secondary" type="button" onclick="showView('logs')">查看日志 / Logs</button>
+              </div>
+              <div class="panel-body">
+                <div id="dashboardOutput" class="output-box">Ready.</div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
 
-    <section>
-      <h2>Profiles</h2>
-      <pre id="profiles">Loading...</pre>
-      <div class="row">
-        <input id="profileSelector" placeholder="number / name / id" />
-        <button onclick="profileUse()">Use</button>
-      </div>
-      <div class="row">
-        <input id="profileRenameSelector" placeholder="profile to rename" />
-        <input id="profileNewName" placeholder="new name" />
-        <button onclick="profileRename()">Rename</button>
-      </div>
-      <div class="row">
-        <input id="profileDeleteSelector" placeholder="profile to delete" />
-        <button class="danger" onclick="profileDelete()">Delete --yes</button>
-      </div>
-    </section>
+      <section id="view-nodes" class="view">
+        <div class="stack">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">节点与模式 / Nodes and Mode</h3>
+                <p class="panel-subtitle">滚动查看全部节点；延迟测试后，每个节点右侧都会显示结果。</p>
+              </div>
+              <button class="secondary" type="button" onclick="runAction('nodes-delay')">延迟测试 / Delay</button>
+            </div>
+            <div class="panel-body stack">
+              <div class="node-tools">
+                <input id="nodeSearch" placeholder="搜索节点 / Search nodes" oninput="renderNodes()" />
+                <select id="nodeSelect"></select>
+                <button type="button" onclick="useSelectedNode()">使用 / Use</button>
+                <div class="segmented" role="group" aria-label="Proxy mode">
+                  <button id="modeSmart" type="button" onclick="setMode('smart')">智能 / Smart</button>
+                  <button id="modeGlobal" type="button" onclick="setMode('global')">全局 / Global</button>
+                  <button id="modeDirect" type="button" onclick="setMode('direct')">直连 / Direct</button>
+                </div>
+              </div>
+              <div id="nodeList" class="node-list"></div>
+            </div>
+          </section>
+        </div>
+      </section>
 
-    <section>
-      <h2>Nodes and Mode</h2>
-      <pre id="nodes">Loading...</pre>
-      <div class="row">
-        <input id="nodeSelector" placeholder="node number or name" />
-        <button onclick="useNode()">Use Node</button>
-        <button class="secondary" onclick="runAction('nodes-delay')">Delay Test</button>
-      </div>
-      <div class="row">
-        <button class="secondary" onclick="setMode('smart')">Smart</button>
-        <button class="secondary" onclick="setMode('global')">Global</button>
-        <button class="secondary" onclick="setMode('direct')">Direct</button>
-      </div>
-    </section>
+      <section id="view-profiles" class="view">
+        <div class="stack">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">订阅 / Profiles</h3>
+                <p class="panel-subtitle">下拉选择方案；重命名、删除和查看地址都会先弹窗确认。</p>
+              </div>
+              <button type="button" onclick="openImportModal()">导入订阅 / Import</button>
+            </div>
+            <div class="panel-body stack">
+              <div class="profile-tools">
+                <select id="profileSelect"></select>
+                <button type="button" onclick="profileUseSelected()">使用 / Use</button>
+                <button class="secondary" type="button" onclick="openRenameSelected()">重命名 / Rename</button>
+                <button class="secondary" type="button" onclick="openUrlSelected()">地址 / URL</button>
+                <button class="danger" type="button" onclick="openDeleteSelected()">删除 / Delete</button>
+              </div>
+              <div id="profileList" class="profile-list"></div>
+            </div>
+          </section>
+        </div>
+      </section>
 
-    <section class="full">
-      <h2>Conflict Status</h2>
-      <pre id="conflicts">Loading...</pre>
-      <p class="muted">If other VPN/proxy/network-access clients are detected, SophiaVPN starts local proxy services but skips automatic macOS system-proxy takeover.</p>
-    </section>
+      <section id="view-logs" class="view">
+        <div class="stack">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">操作输出 / Operation Output</h3>
+                <p class="panel-subtitle">这里显示人能读懂的结果；完整日志仍保存在本地目录。</p>
+              </div>
+            </div>
+            <div class="panel-body">
+              <div id="output" class="output-box">Ready.</div>
+            </div>
+            <div class="footer-actions">
+              <div class="actions">
+                <button class="secondary" type="button" onclick="openDataDir()">打开数据目录 / Data</button>
+                <button class="secondary" type="button" onclick="openLogDir()">打开日志 / Logs</button>
+              </div>
+              <button class="ghost" type="button" onclick="openReinstallModal()">重装命令 / Reinstall CLI</button>
+            </div>
+          </section>
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">冲突详情 / Conflict Details</h3>
+                <p class="panel-subtitle">如果显示黄色，说明发现相关进程；真正启动时若被占用会失败，不会强行覆盖。</p>
+              </div>
+              <button class="secondary" type="button" onclick="runAction('conflicts')">重新检查 / Recheck</button>
+            </div>
+            <div class="panel-body">
+              <div id="conflictDetails" class="event-list"></div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
 
-    <section class="full">
-      <h2>Output</h2>
-      <pre id="output">Ready.</pre>
-      <div class="row">
-        <button class="secondary" onclick="openDataDir()">Open Data Directory</button>
-        <button class="secondary" onclick="openLogDir()">Open Logs</button>
-        <button class="secondary" onclick="runAction('install-sophia')">Reinstall sophia CLI</button>
+  <div id="modalBackdrop" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modalTitle" class="modal-title">确认 / Confirm</h3>
+        <p id="modalCopy" class="modal-copy"></p>
       </div>
-    </section>
-  </main>
+      <div id="modalBody" class="modal-body"></div>
+      <div id="modalActions" class="modal-actions"></div>
+    </div>
+  </div>
 
   <script>
-    const api = window.sophiaVPN || window.silverVPN;
+    const api = window.sophiaVPN || window.silverVPN || null;
+    const pageMeta = {
+      dashboard: ['仪表盘 / Dashboard', '启动会同时接管系统代理和终端代理；如果被其他软件占用，SophiaVPN 会直接失败并告诉你原因。'],
+      nodes: ['节点 / Nodes', '滚动或下拉选择节点，延迟会显示在每个节点右侧。'],
+      profiles: ['订阅 / Profiles', '通过下拉菜单管理订阅；导入、重命名、删除和查看地址都在弹窗中完成。'],
+      logs: ['日志 / Logs', '查看操作输出、打开本地日志目录，危险操作会先确认。']
+    };
+    let lastDashboard = {};
+    let currentView = 'dashboard';
+    let activeModal = null;
 
-    function text(id, value) {
-      document.getElementById(id).textContent = value || '';
+    function $(id) { return document.getElementById(id); }
+    function escapeHtml(value) {
+      return String(value == null ? '' : value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+    function setText(id, value) {
+      const node = $(id);
+      if (node) node.textContent = value == null || value === '' ? '-' : String(value);
+    }
+    function cleanMessage(value) {
+      const text = String(value || '')
+        .replace(/^Error invoking remote method '[^']+': Error:\s*/i, '')
+        .replace(/^Error:\s*/i, '')
+        .trim();
+      if (!text) return '完成 / Done.';
+      const lines = text
+        .split(/\r?\n/)
+        .map(line => line.trimEnd())
+        .filter(Boolean)
+        .filter(line => !/^\s*\/Applications\/|^\s*\/Users\/|--type=|--field-trial-handle=/.test(line));
+      return lines.slice(0, 12).join('\n').slice(0, 1800);
+    }
+    function setOutput(value) {
+      const text = cleanMessage(value);
+      setText('output', text);
+      setText('dashboardOutput', text);
+    }
+    function setBusy(enabled) {
+      const busy = $('busy');
+      const orbit = $('stateOrbit');
+      if (busy) busy.classList.toggle('show', Boolean(enabled));
+      if (orbit) orbit.classList.toggle('is-busy', Boolean(enabled));
+      document.querySelectorAll('button').forEach(button => { button.disabled = Boolean(enabled); });
+    }
+    function setClassName(id, base, tone) {
+      const node = $(id);
+      if (node) node.className = `${base}${tone ? ` ${tone}` : ''}`;
+    }
+    function modeKey(mode) {
+      const value = String(mode || '').toLowerCase();
+      if (value === 'global') return 'global';
+      if (value === 'direct') return 'direct';
+      return 'rule';
+    }
+    function modeText(mode) {
+      const key = modeKey(mode);
+      if (key === 'global') return '全局 / Global';
+      if (key === 'direct') return '直连 / Direct';
+      return '智能 / Smart';
+    }
+    function runtimeTone(status) {
+      if (status && status.running) return 'ok';
+      if (status && status.orphanCore) return 'warn';
+      return 'bad';
     }
 
-    function setOutput(value) {
-      text('output', value || 'Done.');
+    function showView(name) {
+      currentView = name;
+      document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.id === `view-${name}`));
+      document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.view === name));
+      const meta = pageMeta[name] || pageMeta.dashboard;
+      setText('pageTitle', meta[0]);
+      setText('pageSubtitle', meta[1]);
+    }
+
+    function renderStatus(dashboard) {
+      const status = dashboard && dashboard.status ? dashboard.status : {};
+      const ports = status.ports || {};
+      const tone = runtimeTone(status);
+      const runtime = status.running ? '运行中 / Running' : status.orphanCore ? '残留核心 / Orphan core' : '未运行 / Stopped';
+      setText('runtimeHeadline', runtime);
+      setText('runtimeChip', runtime);
+      setClassName('runtimeDot', 'status-dot', tone);
+      setClassName('runtimeChip', 'chip', tone);
+      $('stateOrbit').classList.toggle('is-running', Boolean(status.running));
+      setText('runtimeCopy', status.running
+        ? 'SophiaVPN 正在管理本地代理。系统代理和终端代理应指向 SophiaVPN。'
+        : status.orphanCore
+          ? '检测到残留核心，运行“关闭 / Stop”可以清理。'
+          : 'SophiaVPN 当前未接管代理。点击“启动”后会完整接管系统代理和终端代理。');
+      const rows = [
+        ['模式 / Mode', modeText(status.mode)],
+        ['节点 / Node', status.node || '-'],
+        ['HTTP / SOCKS', `${ports.http || '-'} / ${ports.socks || '-'}`],
+        ['核心 / Core', status.coreReachable ? '有响应 / Reachable' : '无响应 / Not reachable'],
+        ['终端代理 / Terminal', status.terminalProxy ? '已开启 / Enabled' : '未开启 / Disabled'],
+        ['数据目录 / Data', dashboard.dataDir || '-']
+      ];
+      $('statusBox').innerHTML = rows.map(([label, value]) => `
+        <div class="metric">
+          <div class="metric-label">${escapeHtml(label)}</div>
+          <div class="metric-value">${escapeHtml(value)}</div>
+        </div>`).join('');
+      renderModeButtons(status.mode);
+    }
+
+    function renderModeButtons(mode) {
+      const key = modeKey(mode);
+      [['modeSmart', 'rule'], ['modeGlobal', 'global'], ['modeDirect', 'direct']].forEach(([id, value]) => {
+        const node = $(id);
+        if (node) node.classList.toggle('active', value === key);
+      });
+    }
+
+    function delayClass(row) {
+      if (!row.delayText && row.delay == null) return '';
+      if (row.delayOk === false) return 'bad';
+      if (row.delay == null) return '';
+      if (row.delay < 800) return 'good';
+      if (row.delay < 1800) return 'slow';
+      return 'bad';
+    }
+
+    function nodeRows() {
+      return lastDashboard.nodes && Array.isArray(lastDashboard.nodes.rows) ? lastDashboard.nodes.rows : [];
+    }
+
+    function renderNodes() {
+      const rows = nodeRows();
+      const search = String($('nodeSearch') ? $('nodeSearch').value : '').trim().toLowerCase();
+      const filtered = search ? rows.filter(row => row.name.toLowerCase().includes(search) || String(row.index).includes(search)) : rows;
+      const select = $('nodeSelect');
+      if (select) {
+        select.innerHTML = rows.length
+          ? rows.map(row => `<option value="${row.index}" ${row.selected ? 'selected' : ''}>${row.index}. ${escapeHtml(row.name)}</option>`).join('')
+          : '<option value="">无节点 / No nodes</option>';
+      }
+      $('nodeList').innerHTML = filtered.length ? filtered.map(row => `
+        <div class="node-row ${row.selected ? 'selected' : ''}">
+          <div class="row-index">${row.selected ? '*' : ''}${row.index}</div>
+          <div>
+            <div class="row-title">${escapeHtml(row.name)}</div>
+            <div class="row-subtitle">${row.selected ? '当前节点 / Current node' : '可切换节点 / Available node'}</div>
+          </div>
+          <span class="chip delay ${delayClass(row)}">${escapeHtml(row.delayText || (row.delay == null ? '未测试 / -' : `${row.delay} ms`))}</span>
+          <div class="row-actions">
+            <button type="button" onclick="useNode('${row.index}')">使用 / Use</button>
+          </div>
+        </div>`).join('') : '<div class="empty">没有可显示的节点。请确认核心已运行，或点击刷新。<br>No nodes to show.</div>';
+      renderCurrentNode();
+    }
+
+    function renderCurrentNode() {
+      const status = lastDashboard.status || {};
+      const rows = nodeRows();
+      const current = rows.find(row => row.selected) || (lastDashboard.nodes && lastDashboard.nodes.current) || null;
+      const nodeName = status.node || (current && current.name) || '-';
+      $('currentNodeCard').className = 'summary-card';
+      $('currentNodeCard').innerHTML = `
+        <div class="summary-title">${escapeHtml(nodeName)}</div>
+        <div class="summary-copy">模式：${escapeHtml(modeText(status.mode))} · 节点数量：${rows.length || '-'}</div>
+        <div class="actions">
+          <button class="secondary" type="button" onclick="showView('nodes')">切换节点 / Change</button>
+          <button class="secondary" type="button" onclick="runAction('nodes-delay')">测试延迟 / Delay</button>
+        </div>`;
+    }
+
+    function profileRows() {
+      return lastDashboard.profiles && Array.isArray(lastDashboard.profiles.rows) ? lastDashboard.profiles.rows : [];
+    }
+
+    function renderProfiles() {
+      const rows = profileRows();
+      const select = $('profileSelect');
+      if (select) {
+        select.innerHTML = rows.length
+          ? rows.map(row => `<option value="${escapeHtml(row.id || row.index)}" ${row.selected ? 'selected' : ''}>${row.selected ? '* ' : ''}${escapeHtml(row.name)} (${row.proxyCount == null ? '?' : row.proxyCount} 节点)</option>`).join('')
+          : '<option value="">无订阅 / No profiles</option>';
+      }
+      $('profileList').innerHTML = rows.length ? rows.map(row => `
+        <div class="profile-row ${row.selected ? 'selected' : ''}">
+          <div>
+            <div class="row-title">${row.selected ? '* ' : ''}${escapeHtml(row.name)}</div>
+            <div class="row-subtitle">${escapeHtml(row.urlDisplay || row.sourceType || row.kind || '订阅方案')} · ${row.proxyCount == null ? '?' : row.proxyCount} 节点</div>
+          </div>
+          <div class="row-actions">
+            <button class="secondary" type="button" onclick="profileUse('${escapeHtml(row.id || row.index)}')">使用 / Use</button>
+            <button class="secondary" type="button" onclick="openRenameModal('${escapeHtml(row.id || row.index)}')">重命名 / Rename</button>
+            <button class="secondary" type="button" onclick="openUrlModal('${escapeHtml(row.id || row.index)}')">地址 / URL</button>
+            <button class="danger" type="button" onclick="openDeleteModal('${escapeHtml(row.id || row.index)}')">删除 / Delete</button>
+          </div>
+        </div>`).join('') : '<div class="empty">没有订阅方案。点击右上角“导入订阅”。<br>No saved profiles.</div>';
+    }
+
+    function renderProxyOwnership() {
+      const system = lastDashboard.systemProxy || {};
+      const terminal = lastDashboard.terminalProxy || {};
+      const endpoints = Array.isArray(system.endpoints) ? system.endpoints : [];
+      const systemTone = system.ownedBySophia ? 'ok' : system.enabled ? 'warn' : 'bad';
+      const terminalTone = terminal.ownedBySophia ? 'ok' : terminal.enabled ? 'warn' : 'bad';
+      const endpointHtml = endpoints.length ? endpoints.map(item => `
+        <div class="proxy-row">
+          <div class="row-title">${escapeHtml(item.name)}</div>
+          <div>
+            <div>${escapeHtml(item.endpoint)}</div>
+            <div class="row-subtitle">${escapeHtml(item.ownerLabel || '未发现监听进程')}</div>
+          </div>
+          <span class="chip ${item.tone === 'ok' ? 'ok' : item.tone === 'warn' ? 'warn' : ''}">${item.ownedBySophia ? 'SophiaVPN' : item.enabled ? '其他/Other' : '关闭/Off'}</span>
+        </div>`).join('') : '<div class="empty">无法读取系统代理状态。</div>';
+      $('proxyOwnership').innerHTML = `
+        <div class="summary-card ${systemTone}">
+          <div class="summary-title">系统代理 / System Proxy</div>
+          <div class="summary-copy">${system.ownedBySophia ? '已由 SophiaVPN 接管。' : system.enabled ? '当前不是 SophiaVPN；启动时如果被其他软件占用会失败。' : '系统代理未开启。'}</div>
+        </div>
+        ${endpointHtml}
+        <div class="summary-card ${terminalTone}">
+          <div class="summary-title">终端代理 / Terminal Proxy</div>
+          <div class="summary-copy">${terminal.ownedBySophia ? '终端代理目标指向 SophiaVPN。' : terminal.enabled ? '终端代理已启用但目标不是 SophiaVPN。' : '终端代理未启用。'} ${terminal.target ? `目标：${escapeHtml(terminal.target)}` : ''}</div>
+        </div>`;
+    }
+
+    function renderConflicts() {
+      const data = lastDashboard.conflicts || { tone: 'ok', title: '未发现冲突', message: '当前没有发现明显冲突。', rows: [], grouped: [] };
+      $('conflictSummary').className = `summary-card ${data.tone || 'ok'}`;
+      $('conflictSummary').innerHTML = `
+        <div class="summary-title">${escapeHtml(data.title || '冲突检查完成')}</div>
+        <div class="summary-copy">${escapeHtml(data.message || '')}</div>
+        <div><span class="chip ${data.blocking ? 'warn' : 'ok'}">${data.blocking ? '需要确认 / Check first' : '可启动 / Clear'}</span></div>`;
+      const grouped = Array.isArray(data.grouped) ? data.grouped : [];
+      $('conflictDetails').innerHTML = grouped.length ? grouped.map(item => `
+        <div class="conflict-row">
+          <div>
+            <div class="row-title">${escapeHtml(item.label)}</div>
+            <div class="row-subtitle">相关进程数量 / Process count: ${escapeHtml(item.count)}</div>
+          </div>
+          <span class="chip warn">可能占用 / Possible conflict</span>
+        </div>`).join('') : '<div class="summary-card ok"><div class="summary-title">未发现明显冲突</div><div class="summary-copy">启动前没有看到常见 VPN、代理或网络接入客户端。</div></div>';
     }
 
     function renderDashboard(dashboard) {
-      const status = dashboard && dashboard.status;
-      const running = status && status.running;
-      const ports = status && status.ports ? status.ports : {};
-      document.getElementById('statusBox').innerHTML = `
-        <div>Runtime</div><div class="${running ? 'ok' : 'bad'}">${running ? 'Running' : 'Stopped'}</div>
-        <div>Mode</div><div>${status && status.mode ? status.mode : '-'}</div>
-        <div>Node</div><div>${status && status.node ? status.node : '-'}</div>
-        <div>HTTP</div><div>${ports.http || '-'}</div>
-        <div>SOCKS</div><div>${ports.socks || '-'}</div>
-        <div>Data</div><div>${dashboard && dashboard.dataDir ? dashboard.dataDir : '-'}</div>
-      `;
-      text('profiles', dashboard && dashboard.profilesText ? dashboard.profilesText : 'No profiles.');
-      text('nodes', dashboard && dashboard.nodesText ? dashboard.nodesText : 'No nodes.');
-      text('conflicts', dashboard && dashboard.conflictsText ? dashboard.conflictsText : 'No conflict status.');
+      lastDashboard = dashboard || {};
+      renderStatus(lastDashboard);
+      renderNodes();
+      renderProfiles();
+      renderProxyOwnership();
+      renderConflicts();
     }
 
+    async function invoke(action, payload) {
+      if (!api) throw new Error('SophiaVPN 桌面桥未连接。请从 SophiaVPN.app 打开此页面。 Desktop bridge is unavailable.');
+      return api.invoke(action, payload || {});
+    }
     async function call(action, payload) {
-      const response = await api.invoke(action, payload || {});
-      if (response && response.dashboard) renderDashboard(response.dashboard);
-      if (response && response.text) setOutput(response.text);
-      else if (response && response.stderr) setOutput(response.stderr);
-      return response;
-    }
-
-    async function refresh() {
+      setBusy(true);
       try {
-        const dashboard = await api.invoke('dashboard');
-        renderDashboard(dashboard);
+        const response = await invoke(action, payload || {});
+        if (response && response.dashboard) renderDashboard(response.dashboard);
+        if (response && response.text) setOutput(response.text);
+        else if (response && response.stderr) setOutput(response.stderr);
+        else setOutput('完成 / Done.');
+        return response;
       } catch (error) {
-        setOutput(error.message || String(error));
+        setOutput(error && error.message ? error.message : String(error));
+        throw error;
+      } finally {
+        setBusy(false);
       }
     }
-
+    async function refresh() {
+      setBusy(true);
+      try {
+        renderDashboard(await invoke('dashboard'));
+        setOutput('状态已刷新 / Refreshed.');
+      } catch (error) {
+        setOutput(error && error.message ? error.message : String(error));
+      } finally {
+        setBusy(false);
+      }
+    }
     async function runAction(action) {
-      try { await call(action); } catch (error) { setOutput(error.message || String(error)); }
+      try { await call(action); } catch (_error) {}
     }
-
-    async function importProfile() {
-      await call('import', {
-        source: document.getElementById('subscription').value,
-        name: document.getElementById('profileName').value
-      });
+    async function useNode(value) {
+      try { await call('use-node', { node: value || ($('nodeSelect') && $('nodeSelect').value) || '' }); } catch (_error) {}
     }
-
-    async function profileUse() {
-      await call('profile-use', { profile: document.getElementById('profileSelector').value });
+    function useSelectedNode() {
+      const selected = $('nodeSelect').value;
+      if (selected) useNode(selected);
     }
-
-    async function profileRename() {
-      await call('profile-rename', {
-        profile: document.getElementById('profileRenameSelector').value,
-        name: document.getElementById('profileNewName').value
-      });
-    }
-
-    async function profileDelete() {
-      await call('profile-delete', { profile: document.getElementById('profileDeleteSelector').value, yes: true });
-    }
-
-    async function useNode() {
-      await call('use-node', { node: document.getElementById('nodeSelector').value });
-    }
-
     async function setMode(mode) {
-      await call('mode', { mode });
+      try { await call('mode', { mode }); } catch (_error) {}
+    }
+    async function profileUse(value) {
+      try { await call('profile-use', { profile: value || ($('profileSelect') && $('profileSelect').value) || '' }); } catch (_error) {}
+    }
+    function profileUseSelected() {
+      const value = $('profileSelect').value;
+      if (value) profileUse(value);
+    }
+    async function openDataDir() {
+      try { await call('open-data-dir'); } catch (_error) {}
+    }
+    async function openLogDir() {
+      try { await call('open-log-dir'); } catch (_error) {}
     }
 
-    async function openDataDir() { await call('open-data-dir'); }
-    async function openLogDir() { await call('open-log-dir'); }
+    function selectedProfile() {
+      const value = $('profileSelect') ? $('profileSelect').value : '';
+      return profileRows().find(row => row.id === value || String(row.index) === value) || profileRows().find(row => row.selected) || null;
+    }
+    function findProfile(selector) {
+      return profileRows().find(row => row.id === selector || String(row.index) === selector || row.name === selector) || null;
+    }
+    function openModal(title, copy, bodyHtml, actions) {
+      activeModal = true;
+      setText('modalTitle', title);
+      setText('modalCopy', copy);
+      $('modalBody').innerHTML = bodyHtml || '';
+      $('modalActions').innerHTML = actions || '';
+      $('modalBackdrop').classList.add('open');
+    }
+    function closeModal() {
+      activeModal = null;
+      $('modalBackdrop').classList.remove('open');
+      $('modalBody').innerHTML = '';
+      $('modalActions').innerHTML = '';
+    }
+    function openImportModal() {
+      openModal(
+        '导入订阅 / Import Profile',
+        '订阅地址只在导入时使用，不会常驻显示在页面上。',
+        '<textarea id="modalSource" placeholder="订阅 URL / Subscription URL / sub://..."></textarea><input id="modalName" placeholder="方案名 / Profile name" value="My Profile" />',
+        '<button class="secondary" type="button" onclick="closeModal()">取消 / Cancel</button><button type="button" onclick="confirmImport()">导入 / Import</button>'
+      );
+    }
+    async function confirmImport() {
+      const source = $('modalSource').value;
+      const name = $('modalName').value;
+      closeModal();
+      try { await call('import', { source, name }); } catch (_error) {}
+    }
+    function openRenameSelected() {
+      const profile = selectedProfile();
+      if (!profile) return;
+      openRenameModal(profile.id || String(profile.index));
+    }
+    function openUrlSelected() {
+      const profile = selectedProfile();
+      if (!profile) return;
+      openUrlModal(profile.id || String(profile.index));
+    }
+    function openRenameModal(selector) {
+      const profile = findProfile(selector);
+      if (!profile) return;
+      openModal(
+        '重命名订阅 / Rename Profile',
+        `当前方案：${profile.name}`,
+        `<input id="modalRename" placeholder="新名称 / New name" value="${escapeHtml(profile.name)}" />`,
+        `<button class="secondary" type="button" onclick="closeModal()">取消 / Cancel</button><button type="button" onclick="confirmRename('${escapeHtml(profile.id || profile.index)}')">保存 / Save</button>`
+      );
+    }
+    async function confirmRename(selector) {
+      const name = $('modalRename').value;
+      closeModal();
+      try { await call('profile-rename', { profile: selector, name }); } catch (_error) {}
+    }
+    function openDeleteSelected() {
+      const profile = selectedProfile();
+      if (!profile) return;
+      openDeleteModal(profile.id || String(profile.index));
+    }
+    function openDeleteModal(selector) {
+      const profile = findProfile(selector);
+      if (!profile) return;
+      openModal(
+        '删除订阅 / Delete Profile',
+        `确认删除“${profile.name}”？删除后会移除这个订阅方案和本地配置文件。`,
+        '<div class="summary-card bad"><div class="summary-title">这是不可撤销操作</div><div class="summary-copy">如果这是当前正在使用的方案，SophiaVPN 会按 CLI 规则要求确认后才删除。</div></div>',
+        `<button class="secondary" type="button" onclick="closeModal()">取消 / Cancel</button><button class="danger" type="button" onclick="confirmDelete('${escapeHtml(profile.id || profile.index)}')">确认删除 / Delete</button>`
+      );
+    }
+    async function confirmDelete(selector) {
+      closeModal();
+      try { await call('profile-delete', { profile: selector, yes: true }); } catch (_error) {}
+    }
+    function openUrlModal(selector) {
+      const profile = findProfile(selector);
+      if (!profile) return;
+      openModal(
+        '订阅地址 / Subscription URL',
+        profile.name,
+        `<div class="url-box">${escapeHtml(profile.url || profile.urlDisplay || '没有保存订阅地址 / URL not stored')}</div>`,
+        '<button type="button" onclick="closeModal()">关闭 / Close</button>'
+      );
+    }
+    function openReinstallModal() {
+      openModal(
+        '重装命令 / Reinstall CLI',
+        '这会重新安装 sophia/svpn 命令入口，不会主动关闭当前代理，但属于系统入口修改，需要确认。',
+        '<div class="summary-card warn"><div class="summary-title">确认后才执行</div><div class="summary-copy">用于修复终端命令找不到 Node runtime、命令入口损坏等问题。</div></div>',
+        '<button class="secondary" type="button" onclick="closeModal()">取消 / Cancel</button><button type="button" onclick="confirmReinstall()">确认重装 / Reinstall</button>'
+      );
+    }
+    async function confirmReinstall() {
+      closeModal();
+      try { await call('install-sophia'); } catch (_error) {}
+    }
 
+    document.querySelectorAll('.nav-item').forEach(button => {
+      button.addEventListener('click', () => showView(button.dataset.view));
+    });
+    $('modalBackdrop').addEventListener('click', event => {
+      if (event.target === $('modalBackdrop')) closeModal();
+    });
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && activeModal) closeModal();
+    });
+
+    renderDashboard({});
     refresh();
   </script>
 </body>

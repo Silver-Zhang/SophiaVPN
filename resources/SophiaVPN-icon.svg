@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <rect x="64" y="64" width="896" height="896" rx="224" fill="#f94fa2"/>
+  <path d="M64 288c88-138 243-224 448-224 242 0 393 117 448 279v-55C960 164 860 64 736 64H288C164 64 64 164 64 288Z" fill="#ff8fc8" opacity="0.72"/>
+  <path d="M232 142c135-57 313-45 459 31 96 51 174 129 218 218" fill="none" stroke="#ffc7e2" stroke-width="42" stroke-linecap="round" opacity="0.5"/>
+  <ellipse cx="308" cy="242" rx="120" ry="56" fill="#ffd8ec" opacity="0.56" transform="rotate(-20 308 242)"/>
+
+  <path fill="#a9155d" opacity="0.22" d="M532 802c-22-20-44-39-66-58-146-126-250-216-250-342 0-92 70-164 160-164 54 0 106 25 140 65 34-40 86-65 140-65 90 0 160 72 160 164 0 126-104 216-250 342-22 19-44 38-66 58-12 11-31 11-43 0Z"/>
+  <path fill="#fff7fb" d="M512 772c-22-20-44-39-66-58-146-126-250-216-250-342 0-92 70-164 160-164 54 0 106 25 140 65 34-40 86-65 140-65 90 0 160 72 160 164 0 126-104 216-250 342-22 19-44 38-66 58-12 11-31 11-43 0Z"/>
+  <path d="M350 294c-44 13-77 52-82 98" fill="none" stroke="#ffffff" stroke-width="34" stroke-linecap="round" opacity="0.76"/>
+  <path d="M326 448c15 45 56 94 121 153" fill="none" stroke="#ff9dcc" stroke-width="22" stroke-linecap="round" opacity="0.24"/>
+</svg>

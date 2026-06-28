@@ -1,5 +1,7 @@
 node_modules/
 dist/
+resources/clash-binaries/
+resources/node-runtime/
 *.log
 xiongmao_linux_client*.tgz
 .DS_Store

@@ -12,16 +12,18 @@ fi
 
 cd "$ROOT_DIR"
 
-if ! command -v node >/dev/null 2>&1; then
-  echo "Node.js is required. Install Node.js 18+ first." >&2
-  exit 1
-fi
-if ! command -v npm >/dev/null 2>&1; then
-  echo "npm is required. Install npm first." >&2
-  exit 1
+if [[ -z "${SOPHIA_NODE:-}" || ! -x "${SOPHIA_NODE:-}" || -z "${SOPHIA_NPM:-}" || ! -x "${SOPHIA_NPM:-}" ]]; then
+  bash "$ROOT_DIR/scripts/install-node-runtime.sh"
+  export SOPHIA_NODE="$ROOT_DIR/resources/node-runtime/bin/node"
+  export SOPHIA_NPM="$ROOT_DIR/resources/node-runtime/bin/npm"
 fi
 
-ELECTRON_VERSION="$(node -p "require('./package.json').devDependencies.electron")"
+NODE_BIN="$SOPHIA_NODE"
+NPM_BIN="$SOPHIA_NPM"
+RUNTIME_PATH="$(dirname "$NODE_BIN"):$PATH"
+
+ELECTRON_VERSION="$("$NODE_BIN" -p "require('./package.json').devDependencies.electron")"
+PNPM_ELECTRON_DIR="$ROOT_DIR/node_modules/.pnpm/electron@$ELECTRON_VERSION/node_modules/electron"
 
 install_dependencies() {
   env \
@@ -30,7 +32,8 @@ install_dependencies() {
     -u npm_config_ignore_scripts \
     -u npm_config_omit \
     -u npm_config_production \
-    npm install --include=dev --ignore-scripts=false --package-lock=false "$@"
+    PATH="$RUNTIME_PATH" \
+    "$NPM_BIN" install --include=dev --ignore-scripts=false --package-lock=false "$@"
 }
 
 download_electron_binary() {
@@ -40,8 +43,24 @@ download_electron_binary() {
     -u npm_config_ignore_scripts \
     -u npm_config_omit \
     -u npm_config_production \
-    node "$ROOT_DIR/node_modules/electron/install.js"
+    PATH="$RUNTIME_PATH" \
+    "$NODE_BIN" "$ROOT_DIR/node_modules/electron/install.js"
 }
+
+restore_existing_electron() {
+  if [[ ! -e "$ROOT_DIR/node_modules/electron" && -d "$PNPM_ELECTRON_DIR" ]]; then
+    ln -sfn ".pnpm/electron@$ELECTRON_VERSION/node_modules/electron" "$ROOT_DIR/node_modules/electron"
+  fi
+  if [[ ! -x "$ELECTRON_BINARY" && -f "$ROOT_DIR/node_modules/electron/install.js" ]]; then
+    download_electron_binary || true
+  fi
+  [[ -x "$ELECTRON_BINARY" ]]
+}
+
+if restore_existing_electron; then
+  echo "Electron runtime is ready: $ELECTRON_BINARY"
+  exit 0
+fi
 
 echo "Installing npm dependencies (including Electron)"
 initial_install_failed=false
@@ -67,11 +86,11 @@ fi
 
 if [[ ! -x "$ELECTRON_BINARY" ]]; then
   echo "Electron runtime was not installed correctly: $ELECTRON_BINARY" >&2
-  echo "Node: $(node --version 2>/dev/null || echo unknown)" >&2
-  echo "npm: $(npm --version 2>/dev/null || echo unknown)" >&2
-  echo "npm registry: $(npm config get registry 2>/dev/null || echo unknown)" >&2
-  echo "npm omit: $(npm config get omit 2>/dev/null || echo unknown)" >&2
-  echo "npm ignore-scripts: $(npm config get ignore-scripts 2>/dev/null || echo unknown)" >&2
+  echo "Node: $("$NODE_BIN" --version 2>/dev/null || echo unknown)" >&2
+  echo "npm: $("$NPM_BIN" --version 2>/dev/null || echo unknown)" >&2
+  echo "npm registry: $("$NPM_BIN" config get registry 2>/dev/null || echo unknown)" >&2
+  echo "npm omit: $("$NPM_BIN" config get omit 2>/dev/null || echo unknown)" >&2
+  echo "npm ignore-scripts: $("$NPM_BIN" config get ignore-scripts 2>/dev/null || echo unknown)" >&2
   echo "Check access to the npm registry and GitHub, then rerun:" >&2
   echo "  ./scripts/install-electron.sh" >&2
   exit 1

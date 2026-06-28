@@ -26,6 +26,40 @@ ARCH="$(uname -m)"
 export SILVERVPN_DATA_DIR="${SOPHIAVPN_DATA_DIR:-$HOME/.config/SophiaVPN}"
 export SOPHIAVPN_DATA_DIR="$SILVERVPN_DATA_DIR"
 
+resolve_node() {
+  local candidate
+  if [[ -n "${SOPHIA_NODE:-}" && -x "$SOPHIA_NODE" ]]; then
+    printf '%s\n' "$SOPHIA_NODE"
+    return 0
+  fi
+  if [[ -x "$APP_ROOT/resources/node-runtime/bin/node" ]]; then
+    printf '%s\n' "$APP_ROOT/resources/node-runtime/bin/node"
+    return 0
+  fi
+  if command -v node >/dev/null 2>&1; then
+    command -v node
+    return 0
+  fi
+  for candidate in /opt/homebrew/bin/node /usr/local/bin/node; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+NODE_BIN="$(resolve_node || true)"
+if [[ -z "$NODE_BIN" ]]; then
+  cat >&2 <<'EOF'
+Node.js is required to run SophiaVPN, but no node executable was found.
+
+Install Node.js 18+ or set SOPHIA_NODE to an absolute node path, for example:
+  export SOPHIA_NODE=/opt/homebrew/bin/node
+EOF
+  exit 127
+fi
+
 case "$ARCH" in
   x86_64|amd64) CORE_ARCH="amd64" ;;
   arm64|aarch64) CORE_ARCH="arm64" ;;
@@ -44,11 +78,11 @@ fi
 cmd="${1:-help}"
 
 run_node() {
-  node "$JS" "$@"
+  "$NODE_BIN" "$JS" "$@"
 }
 
 extract_ports() {
-  node -e '
+  "$NODE_BIN" -e '
 let raw = "";
 process.stdin.on("data", chunk => { raw += chunk; });
 process.stdin.on("end", () => {
@@ -68,6 +102,225 @@ current_ports() {
   local status_json
   status_json=$(run_node status --json 2>/dev/null || true)
   printf '%s' "$status_json" | extract_ports 2>/dev/null || true
+}
+
+scutil_proxy_value() {
+  local key="$1"
+  scutil --proxy 2>/dev/null | awk -v key="$key" '$1 == key { print $3; exit }'
+}
+
+system_proxy_points_to_sophia() {
+  [[ "$OS" == "Darwin" ]] || return 1
+  local ports http_port socks_port http_enabled http_host http_current_port https_enabled https_host https_current_port socks_enabled socks_host socks_current_port
+  ports=$(current_ports)
+  http_port="${ports%% *}"
+  socks_port="${ports##* }"
+  [[ -n "${http_port:-}" && -n "${socks_port:-}" ]] || return 1
+
+  http_enabled="$(scutil_proxy_value HTTPEnable)"
+  http_host="$(scutil_proxy_value HTTPProxy)"
+  http_current_port="$(scutil_proxy_value HTTPPort)"
+  https_enabled="$(scutil_proxy_value HTTPSEnable)"
+  https_host="$(scutil_proxy_value HTTPSProxy)"
+  https_current_port="$(scutil_proxy_value HTTPSPort)"
+  socks_enabled="$(scutil_proxy_value SOCKSEnable)"
+  socks_host="$(scutil_proxy_value SOCKSProxy)"
+  socks_current_port="$(scutil_proxy_value SOCKSPort)"
+
+  [[ "$http_enabled" == "1" && "$http_host" == "127.0.0.1" && "$http_current_port" == "$http_port" ]] ||
+    [[ "$https_enabled" == "1" && "$https_host" == "127.0.0.1" && "$https_current_port" == "$http_port" ]] ||
+    [[ "$socks_enabled" == "1" && "$socks_host" == "127.0.0.1" && "$socks_current_port" == "$socks_port" ]]
+}
+
+proxy_url_is_sophia() {
+  local value="$1"
+  local ports http_port
+  ports=$(current_ports)
+  http_port="${ports%% *}"
+  [[ -n "${http_port:-}" ]] || return 1
+  [[ "$value" == "http://127.0.0.1:${http_port}" ||
+    "$value" == "https://127.0.0.1:${http_port}" ||
+    "$value" == "socks://127.0.0.1:${http_port}" ||
+    "$value" == "socks5://127.0.0.1:${http_port}" ||
+    "$value" == "http://localhost:${http_port}" ||
+    "$value" == "https://localhost:${http_port}" ]]
+}
+
+proxy_url_port() {
+  local value="$1"
+  case "$value" in
+    http://127.0.0.1:*|https://127.0.0.1:*|socks://127.0.0.1:*|socks5://127.0.0.1:*|http://localhost:*|https://localhost:*|socks://localhost:*|socks5://localhost:*)
+      value="${value##*:}"
+      value="${value%%/*}"
+      echo "$value"
+      ;;
+    *)
+      echo ''
+      ;;
+  esac
+}
+
+local_port_owner() {
+  local port="$1"
+  local pids labels pid command lower label
+  if [[ -z "$port" || "$port" == "0" ]]; then
+    echo '无'
+    return 0
+  fi
+  pids=$(lsof -nP -t -iTCP:"$port" -sTCP:LISTEN 2>/dev/null | sort -u | tr '\n' ' ' || true)
+  if [[ -z "$pids" ]]; then
+    echo '未发现监听进程'
+    return 0
+  fi
+  labels=""
+  for pid in $pids; do
+    command=$(ps -p "$pid" -o command= 2>/dev/null || true)
+    lower=$(printf '%s' "$command" | tr '[:upper:]' '[:lower:]')
+    label="$(basename "${command%% *}" 2>/dev/null || echo '未知进程')"
+    if [[ "$command" == *"$APP_ROOT"* || "$command" == *"$SOPHIAVPN_DATA_DIR"* || "$lower" == *"sophiavpn"* ]]; then
+      label='SophiaVPN'
+    elif [[ "$command" == *"熊猫"* || "$lower" == *"panda"* || "$command" == *"/rocket/"* || "$lower" == *"clashr-darwin"* ]]; then
+      label='熊猫云 / Panda'
+    fi
+    labels="${labels}${labels:+, }${label} (PID ${pid})"
+  done
+  echo "$labels"
+}
+
+system_proxy_blocker() {
+  [[ "$OS" == "Darwin" ]] || return 1
+  local ports http_port socks_port http_enabled http_host http_current_port https_enabled https_host https_current_port socks_enabled socks_host socks_current_port owner
+  ports=$(current_ports)
+  http_port="${ports%% *}"
+  socks_port="${ports##* }"
+  [[ -n "${http_port:-}" && -n "${socks_port:-}" ]] || return 1
+
+  http_enabled="$(scutil_proxy_value HTTPEnable)"
+  http_host="$(scutil_proxy_value HTTPProxy)"
+  http_current_port="$(scutil_proxy_value HTTPPort)"
+  https_enabled="$(scutil_proxy_value HTTPSEnable)"
+  https_host="$(scutil_proxy_value HTTPSProxy)"
+  https_current_port="$(scutil_proxy_value HTTPSPort)"
+  socks_enabled="$(scutil_proxy_value SOCKSEnable)"
+  socks_host="$(scutil_proxy_value SOCKSProxy)"
+  socks_current_port="$(scutil_proxy_value SOCKSPort)"
+
+  if [[ "$http_enabled" == "1" && !( "$http_host" == "127.0.0.1" && "$http_current_port" == "$http_port" ) ]]; then
+    owner=$([[ "$http_host" == "127.0.0.1" ]] && local_port_owner "$http_current_port" || echo '外部代理')
+    echo "HTTP ${http_host}:${http_current_port} · ${owner}"
+    return 0
+  fi
+  if [[ "$https_enabled" == "1" && !( "$https_host" == "127.0.0.1" && "$https_current_port" == "$http_port" ) ]]; then
+    owner=$([[ "$https_host" == "127.0.0.1" ]] && local_port_owner "$https_current_port" || echo '外部代理')
+    echo "HTTPS ${https_host}:${https_current_port} · ${owner}"
+    return 0
+  fi
+  if [[ "$socks_enabled" == "1" && !( "$socks_host" == "127.0.0.1" && "$socks_current_port" == "$socks_port" ) ]]; then
+    owner=$([[ "$socks_host" == "127.0.0.1" ]] && local_port_owner "$socks_current_port" || echo '外部代理')
+    echo "SOCKS ${socks_host}:${socks_current_port} · ${owner}"
+    return 0
+  fi
+  return 1
+}
+
+terminal_proxy_blocker() {
+  local name value port owner state_file state_target
+  for name in HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy; do
+    value="${!name:-}"
+    [[ -n "$value" ]] || continue
+    if ! proxy_url_is_sophia "$value"; then
+      port=$(proxy_url_port "$value")
+      owner=$([[ -n "$port" ]] && local_port_owner "$port" || echo '未知')
+      echo "${name}=${value} · ${owner}"
+      return 0
+    fi
+  done
+
+  state_file="$SOPHIAVPN_DATA_DIR/shell-proxy.sh"
+  if [[ -r "$state_file" ]] && grep -Eq 'SOPHIAVPN_PROXY_ENABLED=1|SILVERVPN_PROXY_ENABLED=1' "$state_file"; then
+    state_target=$(sed -n "s/^export HTTP_PROXY=['\"]\\{0,1\\}\\([^'\"]*\\)['\"]\\{0,1\\}$/\\1/p" "$state_file" | head -n 1)
+    if [[ -n "$state_target" ]] && ! proxy_url_is_sophia "$state_target"; then
+      port=$(proxy_url_port "$state_target")
+      owner=$([[ -n "$port" ]] && local_port_owner "$port" || echo '未知')
+      echo "SophiaVPN shell state ${state_target} · ${owner}"
+      return 0
+    fi
+  fi
+  return 1
+}
+
+preflight_on_takeover() {
+  local blocker
+  blocker=$(system_proxy_blocker || true)
+  if [[ -n "$blocker" ]]; then
+    cat >&2 <<EOF
+无法启动 SophiaVPN：macOS 系统代理已被其他软件占用。
+占用：${blocker}
+
+请先退出占用系统代理的软件，然后重新运行：
+  sophia on
+EOF
+    return 3
+  fi
+
+  blocker=$(terminal_proxy_blocker || true)
+  if [[ -n "$blocker" ]]; then
+    cat >&2 <<EOF
+无法启动 SophiaVPN：当前终端代理已指向其他软件。
+占用：${blocker}
+
+请先清理当前终端代理环境变量，或打开一个干净的新终端，然后重新运行：
+  unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+  sophia on
+EOF
+    return 4
+  fi
+}
+
+print_system_proxy_summary() {
+  [[ "$OS" == "Darwin" ]] || {
+    echo '系统代理检查仅支持 macOS。'
+    return 0
+  }
+  local ports http_port socks_port http_enabled http_host http_current_port https_enabled https_host https_current_port socks_enabled socks_host socks_current_port owner
+  ports=$(current_ports)
+  http_port="${ports%% *}"
+  socks_port="${ports##* }"
+  http_enabled="$(scutil_proxy_value HTTPEnable)"
+  http_host="$(scutil_proxy_value HTTPProxy)"
+  http_current_port="$(scutil_proxy_value HTTPPort)"
+  https_enabled="$(scutil_proxy_value HTTPSEnable)"
+  https_host="$(scutil_proxy_value HTTPSProxy)"
+  https_current_port="$(scutil_proxy_value HTTPSPort)"
+  socks_enabled="$(scutil_proxy_value SOCKSEnable)"
+  socks_host="$(scutil_proxy_value SOCKSProxy)"
+  socks_current_port="$(scutil_proxy_value SOCKSPort)"
+
+  echo 'macOS 系统代理占用：'
+  if [[ "$http_enabled" == "1" ]]; then
+    owner=$([[ "$http_host" == "127.0.0.1" ]] && local_port_owner "$http_current_port" || echo '外部代理')
+    echo "  HTTP: ${http_host}:${http_current_port} · ${owner}"
+  else
+    echo '  HTTP: 未启用'
+  fi
+  if [[ "$https_enabled" == "1" ]]; then
+    owner=$([[ "$https_host" == "127.0.0.1" ]] && local_port_owner "$https_current_port" || echo '外部代理')
+    echo "  HTTPS: ${https_host}:${https_current_port} · ${owner}"
+  else
+    echo '  HTTPS: 未启用'
+  fi
+  if [[ "$socks_enabled" == "1" ]]; then
+    owner=$([[ "$socks_host" == "127.0.0.1" ]] && local_port_owner "$socks_current_port" || echo '外部代理')
+    echo "  SOCKS: ${socks_host}:${socks_current_port} · ${owner}"
+  else
+    echo '  SOCKS: 未启用'
+  fi
+  if system_proxy_points_to_sophia; then
+    echo '当前系统代理指向 SophiaVPN。'
+  else
+    echo '当前系统代理未指向 SophiaVPN。'
+    echo '接管提示：先退出占用代理的软件，然后运行 sophia on。'
+  fi
 }
 
 has_macos_conflicts() {
@@ -101,15 +354,19 @@ macos_system_proxy() {
   fi
   case "$action" in
     on|enable)
-      if [[ "$force" != "1" ]] && has_macos_conflicts; then
-        echo 'macOS 系统代理：检测到其他 VPN/代理/网络接入客户端，已跳过系统代理接管。'
-        print_macos_conflicts
-        echo 'SophiaVPN 本地 HTTP/SOCKS 代理仍在运行；可在终端、IDE 或指定应用中手动使用本地代理。'
-        echo '如确认要覆盖 macOS 系统代理，请先关闭冲突软件，或手动执行：SOPHIA_FORCE_SYSTEM_PROXY=1 sophia system-proxy on'
-        if [[ "$mode" == "auto" ]]; then
-          return 0
+      if [[ "$force" != "1" ]]; then
+        local blocker
+        blocker=$(system_proxy_blocker || true)
+        if [[ -n "$blocker" ]]; then
+          echo "macOS 系统代理已被其他软件占用：${blocker}" >&2
+          return 3
         fi
-        return 2
+      fi
+      ;;
+    off|disable)
+      if [[ "$force" != "1" ]] && ! system_proxy_points_to_sophia; then
+        echo 'macOS 系统代理：当前未由 SophiaVPN 接管，已跳过关闭，避免影响其他代理。'
+        return 0
       fi
       ;;
   esac
@@ -151,10 +408,15 @@ test_url() {
 case "$cmd" in
   on)
     shift || true
+    preflight_on_takeover
     run_node start --proxy "$@"
     run_node vscode on "$@"
-    macos_system_proxy on auto || true
-    echo 'SophiaVPN 一键开启完成。'
+    if ! macos_system_proxy on manual; then
+      run_node proxy off "$@" || true
+      run_node stop "$@" || true
+      exit 3
+    fi
+    echo 'SophiaVPN 已启动，并已接管系统代理和终端代理。'
     ;;
   off)
     shift || true
@@ -173,7 +435,27 @@ case "$cmd" in
         export SOPHIA_FORCE_SYSTEM_PROXY=1
       fi
     done
+    if [[ "$action" == "status" ]]; then
+      print_system_proxy_summary
+      exit 0
+    fi
+    if [[ "$action" == "on" || "$action" == "enable" ]]; then
+      echo '系统代理接管请统一使用：sophia on'
+      exit 2
+    fi
     macos_system_proxy "$action" manual
+    ;;
+  proxy)
+    action="${2:-status}"
+    if [[ "$action" == "on" || "$action" == "enable" ]]; then
+      echo '终端代理接管请统一使用：sophia on'
+      exit 2
+    fi
+    if [[ "$action" == "off" || "$action" == "disable" ]]; then
+      echo '关闭终端代理请统一使用：sophia off'
+      exit 2
+    fi
+    exec "$NODE_BIN" "$JS" "$@"
     ;;
   conflicts|conflict|vpn-check)
     shift || true
@@ -185,7 +467,7 @@ case "$cmd" in
     ;;
   import)
     shift || true
-    node "$IMPORT_JS" "$@"
+    "$NODE_BIN" "$IMPORT_JS" "$@"
     if run_node status --json >/tmp/sophia-status-$$.json 2>/dev/null; then
       if grep -q '"running": true' /tmp/sophia-status-$$.json; then
         echo '检测到后台正在运行，正在重启以应用新订阅...'
@@ -198,9 +480,9 @@ case "$cmd" in
     subcmd="${2:-list}"
     if [[ -x "$PROFILE_JS" && ( "$subcmd" == "rename" || "$subcmd" == "delete" || "$subcmd" == "remove" || "$subcmd" == "rm" ) ]]; then
       shift || true
-      node "$PROFILE_JS" "$@"
+      "$NODE_BIN" "$PROFILE_JS" "$@"
     else
-      exec node "$JS" "$@"
+      exec "$NODE_BIN" "$JS" "$@"
     fi
     ;;
   test)
@@ -228,15 +510,16 @@ case "$cmd" in
     run_node help
     echo
     echo 'SophiaVPN wrapper:'
-    echo '  sophia on                         Start backend and user-level integrations; macOS system proxy is skipped if conflicts are detected.'
+    echo '  sophia on                         Start SophiaVPN and take over system + terminal proxy; fails if another proxy owns them.'
     echo '  sophia off                        Stop backend and remove user-level proxy integrations.'
-    echo '  sophia system-proxy on|off|status Manage macOS system proxy explicitly. Use --force only after closing conflicting tools.'
+    echo '  sophia system-proxy status        Show who owns macOS system proxy.'
+    echo '  sophia proxy status               Show current terminal proxy owner.'
     echo '  sophia conflicts                  Detect other VPN/proxy/network-access clients on macOS.'
     echo '  sophia import                     Imports Clash/Mihomo YAML and URI subscriptions.'
     echo '  sophia profile rename <id> <name> Rename a saved subscription profile.'
     echo '  sophia profile delete <id> --yes  Delete a saved subscription profile.'
     ;;
   *)
-    exec node "$JS" "$@"
+    exec "$NODE_BIN" "$JS" "$@"
     ;;
 esac

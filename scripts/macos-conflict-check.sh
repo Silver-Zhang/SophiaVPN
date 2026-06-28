@@ -20,6 +20,7 @@ PATTERNS=(
   'proxy-manager|Surge|Surge'
   'proxy-manager|Stash|Stash'
   'proxy-manager|Quantumult X|Quantumult|Quantumult X'
+  'proxy-manager|熊猫上网 / 熊猫云 / Panda / PandaVPN / xiongmao|熊猫上网|熊猫云|熊猫|PandaVPN|Panda|xiongmao|rocket/clash-configs'
   'proxy-manager|V2RayU|V2RayU|V2rayU'
   'proxy-manager|Loon|Loon'
   'proxy-manager|sing-box|sing-box|singbox'
@@ -49,25 +50,31 @@ skip_own_process() {
 }
 
 process_table() {
-  ps ax -o pid= -o comm= -o args= 2>/dev/null || true
+  # Use args without comm: macOS can emit invalid bytes in comm for localized app names,
+  # which makes Bash regex matching miss otherwise valid command lines.
+  ps ax -o pid= -o args= 2>/dev/null || true
 }
 
 matches=()
+shopt -s nocasematch
 while IFS= read -r line; do
   [[ -n "$line" ]] || continue
-  pid="$(awk '{print $1}' <<<"$line")"
-  command="${line#${pid}}"
+  line="${line#"${line%%[![:space:]]*}"}"
+  pid="${line%%[[:space:]]*}"
+  command="${line#"$pid"}"
+  command="${command#"${command%%[![:space:]]*}"}"
   if skip_own_process "$command"; then
     continue
   fi
   for spec in "${PATTERNS[@]}"; do
     IFS='|' read -r category name pattern <<<"$spec"
-    if grep -Eiq "$pattern" <<<"$command"; then
-      matches+=("$category|$name|$pid|$(sed 's/^ *//' <<<"$command")")
+    if [[ "$command" =~ $pattern ]]; then
+      matches+=("$category|$name|$pid|$command")
       break
     fi
   done
 done < <(process_table)
+shopt -u nocasematch
 
 if [[ "$ACTION" == "--quiet" || "$ACTION" == "quiet" ]]; then
   if (( ${#matches[@]} > 0 )); then

@@ -11,6 +11,9 @@ const { spawn, spawnSync, execSync } = require('child_process');
 const yaml = require('js-yaml');
 
 const APP_ROOT = path.resolve(__dirname, '..');
+const PRODUCT_NAME = 'SophiaVPN';
+const CLI_NAME = 'sophia';
+const COMPAT_CLI_NAME = 'svpn';
 const DEFAULT_DELAY_URL = 'https://www.gstatic.com/generate_204';
 const START_TIMEOUT_MS = 15000;
 const DEFAULT_BASE_PORTS = [4780, 4880, 4980, 5080, 5180, 5280, 5380, 5480, 5580, 5680];
@@ -100,7 +103,7 @@ function readJson(file, fallback) {
 }
 
 function writeJson(file, value) {
-  file = assertPathInHome(file, 'SilverVPN output file');
+  file = assertPathInHome(file, `${PRODUCT_NAME} output file`);
   ensureDir(path.dirname(file));
   fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
 }
@@ -127,8 +130,8 @@ function getPaths(args = {}) {
   const dataDir = assertPathInHome(
     args['data-dir'] ||
     process.env.SILVERVPN_DATA_DIR ||
-    path.join(os.homedir(), '.config', 'SilverVPN'),
-    'SilverVPN data directory'
+    path.join(os.homedir(), '.config', 'SophiaVPN'),
+    `${PRODUCT_NAME} data directory`
   );
   const resources = args.resources || path.join(APP_ROOT, 'resources');
   return {
@@ -169,17 +172,23 @@ function portsFromBase(base) {
 }
 
 function listListeningPorts() {
-  try {
-    const output = execSync('ss -H -ltn', { encoding: 'utf8' });
+  const parsePorts = output => {
     const ports = new Set();
     for (const line of output.split(/\r?\n/)) {
-      const match = line.match(/:(\d+)\s/);
+      const match = line.match(/:(\d+)(?:\s|\s*\()/);
       if (match) ports.add(Number(match[1]));
     }
     return ports;
-  } catch (_error) {
-    return new Set();
-  }
+  };
+  try {
+    const output = execSync('ss -H -ltn', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return parsePorts(output);
+  } catch (_error) {}
+  try {
+    const output = execSync('lsof -nP -iTCP -sTCP:LISTEN', { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+    return parsePorts(output);
+  } catch (_error) {}
+  return new Set();
 }
 
 function portSetAvailable(ports, allowPidRunning = false) {
@@ -199,7 +208,7 @@ function findAvailablePorts() {
     const ports = portsFromBase(base);
     if (portSetAvailable(ports)) return ports;
   }
-  throw new Error('No free SilverVPN port set found. Run: svpn config ports <base-port>');
+  throw new Error(`No free ${PRODUCT_NAME} port set found. Run: ${CLI_NAME} config ports <base-port>`);
 }
 
 function getServerConfig(paths) {
@@ -270,14 +279,37 @@ function pidAlive(pid) {
   }
 }
 
-function processBelongsToCurrentUser(pid) {
-  try {
-    if (fs.statSync(`/proc/${Number(pid)}`).uid !== process.getuid()) return false;
-    const command = fs.readFileSync(`/proc/${Number(pid)}/cmdline`, 'utf8').replace(/\0/g, ' ');
-    return command.includes(path.resolve(__filename)) && command.includes(' daemon');
-  } catch (_error) {
-    return false;
+function readProcessInfo(pid) {
+  const numericPid = Number(pid);
+  if (!Number.isInteger(numericPid) || numericPid <= 0) {
+    return { uid: null, command: '' };
   }
+
+  try {
+    const stat = fs.statSync(`/proc/${numericPid}`);
+    const command = fs.readFileSync(`/proc/${numericPid}/cmdline`, 'utf8').replace(/\0/g, ' ').trim();
+    return { uid: stat.uid, command };
+  } catch (_error) {
+    // macOS does not expose /proc; fall back to ps below.
+  }
+
+  try {
+    const result = spawnSync('ps', ['-p', String(numericPid), '-o', 'uid=', '-o', 'command='], { encoding: 'utf8' });
+    if (result.status !== 0 || !result.stdout.trim()) return { uid: null, command: '' };
+    const line = result.stdout.trim();
+    const match = line.match(/^(\d+)\s+([\s\S]+)$/);
+    if (!match) return { uid: null, command: line };
+    return { uid: Number(match[1]), command: match[2].trim() };
+  } catch (_error) {
+    return { uid: null, command: '' };
+  }
+}
+
+function processBelongsToCurrentUser(pid) {
+  const info = readProcessInfo(pid);
+  if (!info.command) return false;
+  if (typeof process.getuid === 'function' && info.uid !== null && info.uid !== process.getuid()) return false;
+  return info.command.includes(path.resolve(__filename)) && /\sdaemon(?:\s|$)/.test(info.command);
 }
 
 function readPidInfo(paths) {
@@ -289,6 +321,62 @@ function readPidInfo(paths) {
 function isRunning(paths) {
   const info = readPidInfo(paths);
   return Boolean(info && pidAlive(info.pid) && processBelongsToCurrentUser(info.pid));
+}
+
+function listeningPidsForPort(port) {
+  try {
+    const result = spawnSync('lsof', ['-nP', '-t', `-iTCP:${port}`, '-sTCP:LISTEN'], { encoding: 'utf8' });
+    if (result.status !== 0 && !result.stdout.trim()) return [];
+    return [...new Set(result.stdout.split(/\s+/).map(Number).filter(Number.isInteger))];
+  } catch (_error) {
+    return [];
+  }
+}
+
+function processLooksLikeSophiaRuntime(pid, paths) {
+  const info = readProcessInfo(pid);
+  if (!info.command) return false;
+  if (typeof process.getuid === 'function' && info.uid !== null && info.uid !== process.getuid()) return false;
+  const command = info.command;
+  return (
+    (command.includes(path.resolve(__filename)) && /\sdaemon(?:\s|$)/.test(command)) ||
+    command.includes(paths.runtimeDir) ||
+    command.includes(paths.dataDir) ||
+    command.includes(path.join(APP_ROOT, 'resources', 'clash-binaries'))
+  );
+}
+
+async function cleanupOrphanRuntime(paths, ports) {
+  const candidates = new Set();
+  for (const port of [ports.service, ports.core, ports.http, ports.socks]) {
+    listeningPidsForPort(port).forEach(pid => candidates.add(pid));
+  }
+  const pids = [...candidates].filter(pid => pidAlive(pid) && processLooksLikeSophiaRuntime(pid, paths));
+  if (!pids.length) return 0;
+
+  for (const pid of pids) {
+    try {
+      process.kill(pid, 'SIGTERM');
+    } catch (_error) {
+      // Continue with other Sophia-owned runtime processes.
+    }
+  }
+
+  const started = Date.now();
+  while (Date.now() - started < 5000 && pids.some(pidAlive)) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  for (const pid of pids) {
+    if (pidAlive(pid) && processLooksLikeSophiaRuntime(pid, paths)) {
+      try {
+        process.kill(pid, 'SIGKILL');
+      } catch (_error) {
+        // Best effort cleanup only.
+      }
+    }
+  }
+  return pids.length;
 }
 
 function requestCore(ports, pathname, options = {}) {
@@ -432,7 +520,7 @@ function prepareRuntimeConfig(paths, ports) {
 
 function appendLog(paths, stream, line) {
   ensureDir(paths.logsDir);
-  fs.appendFileSync(assertPathInHome(path.join(paths.logsDir, stream), 'SilverVPN log'), line);
+  fs.appendFileSync(assertPathInHome(path.join(paths.logsDir, stream), `${PRODUCT_NAME} log`), line);
 }
 
 function proxyToCore(ports, request, response) {
@@ -544,18 +632,18 @@ async function restoreSelection(paths, ports) {
 async function start(paths, args) {
   const ports = getPorts(paths, args);
   if (isRunning(paths)) {
-    console.log(`SilverVPN 已在后台运行：${formatPorts(ports)}`);
+    console.log(`${PRODUCT_NAME} 已在后台运行：${formatPorts(ports)}`);
     return;
   }
   if (!portSetAvailable(ports)) {
-    throw new Error(`端口组被占用：${formatPorts(ports)}。请运行 svpn config ports <base-port> 设置个人端口。`);
+    throw new Error(`端口组被占用：${formatPorts(ports)}。请运行 ${CLI_NAME} config ports <base-port> 设置个人端口。`);
   }
   const core = findCore(paths);
   if (!core) throw new Error('mihomo core not found. Run scripts/install.sh first.');
   prepareRuntimeConfig(paths, ports);
   ensureDir(paths.logsDir);
-  const stdout = fs.openSync(assertPathInHome(path.join(paths.logsDir, 'svpn-core.log'), 'SilverVPN log'), 'a');
-  const stderr = fs.openSync(assertPathInHome(path.join(paths.logsDir, 'svpn-core.err.log'), 'SilverVPN log'), 'a');
+  const stdout = fs.openSync(assertPathInHome(path.join(paths.logsDir, 'svpn-core.log'), `${PRODUCT_NAME} log`), 'a');
+  const stderr = fs.openSync(assertPathInHome(path.join(paths.logsDir, 'svpn-core.err.log'), `${PRODUCT_NAME} log`), 'a');
   const child = spawn(process.execPath, [path.resolve(__filename), 'daemon', '--data-dir', paths.dataDir], {
     detached: true,
     stdio: ['ignore', stdout, stderr]
@@ -578,18 +666,25 @@ async function start(paths, args) {
   await restoreSelection(paths, ports);
   if (args.proxy) writeShellProxy(paths, ports, true);
   const proxyEnabled = shellProxyEnabled(paths);
-  console.log('SilverVPN 已启动');
+  console.log(`${PRODUCT_NAME} 已启动`);
   console.log(`模式：proxy-only 后台`);
   console.log(`端口：${formatPorts(ports)}`);
-  console.log(`终端代理：${proxyEnabled ? '已开启' : '未开启（运行 svpn proxy on）'}`);
+  console.log(`终端代理：${proxyEnabled ? '已开启' : `未开启（运行 ${CLI_NAME} proxy on）`}`);
 }
 
 async function stop(paths, args) {
   const info = readPidInfo(paths);
+  const ports = (info && info.ports) || getPorts(paths, args);
+  let stopped = false;
   if (!info || !info.pid || !pidAlive(info.pid) || !processBelongsToCurrentUser(info.pid)) {
     fs.rmSync(paths.pidFile, { force: true });
     if (args.proxy) writeShellProxy(paths, getPorts(paths, args), false);
-    console.log('SilverVPN 未在后台运行');
+    const cleaned = await cleanupOrphanRuntime(paths, ports);
+    if (cleaned) {
+      console.log(`${PRODUCT_NAME} 已清理残留后台进程`);
+    } else {
+      console.log(`${PRODUCT_NAME} 未在后台运行`);
+    }
     return;
   }
   process.kill(Number(info.pid), 'SIGTERM');
@@ -598,8 +693,10 @@ async function stop(paths, args) {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   fs.rmSync(paths.pidFile, { force: true });
-  if (args.proxy !== false) writeShellProxy(paths, info.ports || getPorts(paths, args), false);
-  console.log('SilverVPN 已停止');
+  stopped = true;
+  const cleaned = await cleanupOrphanRuntime(paths, ports);
+  if (args.proxy !== false) writeShellProxy(paths, ports, false);
+  console.log(cleaned && !stopped ? `${PRODUCT_NAME} 已清理残留后台进程` : `${PRODUCT_NAME} 已停止`);
 }
 
 async function restart(paths, args) {
@@ -659,7 +756,33 @@ async function getDelay(ports, node) {
 
 function shellProxyEnabled(paths) {
   const text = readText(paths.shellProxyFile);
-  return /SILVERVPN_PROXY_ENABLED=1/.test(text);
+  return /(SOPHIAVPN|SILVERVPN)_PROXY_ENABLED=1/.test(text);
+}
+
+function readShellProxyValue(paths, name) {
+  const text = readText(paths.shellProxyFile);
+  const match = text.match(new RegExp(`(?:export\\s+)?${name}=['"]?([^'"\\n]+)['"]?`));
+  return match ? match[1].trim() : '';
+}
+
+function localPortFromProxyUrl(value) {
+  const match = String(value || '').trim().match(/^(?:https?|socks5h?|socks):\/\/(?:127\.0\.0\.1|localhost):(\d+)/i);
+  return match ? Number(match[1]) : 0;
+}
+
+function ownerLabelForPort(paths, port) {
+  if (!port) return '不是本机代理地址';
+  const pids = listeningPidsForPort(port).filter(pid => pidAlive(pid));
+  if (!pids.length) return '未发现监听进程';
+  const labels = pids.map(pid => {
+    const command = readProcessInfo(pid).command || '';
+    const lower = command.toLowerCase();
+    let label = path.basename(String(command).split(/\s+/)[0] || '未知进程');
+    if (command.includes(APP_ROOT) || command.includes(paths.dataDir) || lower.includes('sophiavpn')) label = PRODUCT_NAME;
+    else if (command.includes('熊猫') || lower.includes('panda') || command.includes('/rocket/') || lower.includes('clashr-darwin')) label = '熊猫云 / Panda';
+    return `${label} (PID ${pid})`;
+  });
+  return [...new Set(labels)].join(', ');
 }
 
 function vscodeProxyEnabled(ports) {
@@ -700,11 +823,24 @@ async function status(paths, args) {
   const delay = core.running && node !== '未选择' && !args['no-delay'] ? await getDelay(ports, node) : null;
 
   if (args.json) {
-    console.log(JSON.stringify({ running: alive || core.running, pid: pid && pid.pid, ports, mode, node, delay, terminalProxy: shellProxyEnabled(paths), vscodeProxy: vscodeProxyEnabled(ports), dataDir: paths.dataDir }, null, 2));
+    console.log(JSON.stringify({
+      running: alive,
+      managedRunning: alive,
+      coreReachable: core.running,
+      orphanCore: !alive && core.running,
+      pid: alive && pid ? pid.pid : null,
+      ports,
+      mode,
+      node,
+      delay,
+      terminalProxy: shellProxyEnabled(paths),
+      vscodeProxy: vscodeProxyEnabled(ports),
+      dataDir: paths.dataDir
+    }, null, 2));
     return;
   }
 
-  console.log(`SilverVPN：${alive || core.running ? '运行中' : '未运行'}`);
+  console.log(`${PRODUCT_NAME}：${alive ? '运行中' : '未运行'}`);
   console.log(`用户：${os.userInfo().username}`);
   console.log(`模式：${readModeLabel(mode)} (${String(mode).toLowerCase()})`);
   console.log(`节点：${node}${delay === null ? '' : `  ${delay} ms`}`);
@@ -714,11 +850,14 @@ async function status(paths, args) {
   console.log(`VS Code Stable：${vscodeState.stable ? '已配置 override' : '未配置'}`);
   console.log(`VS Code Insiders：${vscodeState.insiders ? '已配置 override' : '未配置'}`);
   console.log(`后台：${alive ? `PID ${pid.pid}` : '无后台进程'}`);
+  if (!alive && core.running) {
+    console.log(`残留核心：检测到本机端口仍有 SophiaVPN 核心响应，可运行 ${CLI_NAME} off 清理。`);
+  }
 }
 
 async function setMode(paths, args) {
   const mode = MODE_ALIASES[String(args._[1] || '').toLowerCase()];
-  if (!mode) throw new Error('Usage: svpn mode smart|global|direct');
+  if (!mode) throw new Error(`Usage: ${CLI_NAME} mode smart|global|direct`);
   const ports = getPorts(paths, args);
   const settings = readJson(paths.settingsFile, {});
   settings.mode = mode;
@@ -759,7 +898,7 @@ async function nodes(paths, args) {
 
 function resolveNode(input, list) {
   const value = String(input || '').trim();
-  if (!value) throw new Error('Usage: svpn use <node-number-or-name>');
+  if (!value) throw new Error(`Usage: ${CLI_NAME} use <node-number-or-name>`);
   if (/^\d+$/.test(value)) {
     const index = Number(value) - 1;
     if (index >= 0 && index < list.length) return list[index];
@@ -796,14 +935,14 @@ function writeShellProxy(paths, ports, enabled) {
   paths.shellProxyFile = assertPathInHome(paths.shellProxyFile, 'Shell proxy state');
   ensureDir(path.dirname(paths.shellProxyFile));
   if (!enabled) {
-    fs.writeFileSync(paths.shellProxyFile, `# Generated by svpn.\nexport SILVERVPN_PROXY_ENABLED=0\nunset HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy\n`);
+    fs.writeFileSync(paths.shellProxyFile, `# Generated by ${PRODUCT_NAME}.\nexport SOPHIAVPN_PROXY_ENABLED=0\nexport SILVERVPN_PROXY_ENABLED=0\nunset HTTP_PROXY HTTPS_PROXY ALL_PROXY NO_PROXY http_proxy https_proxy all_proxy no_proxy\n`);
     fs.chmodSync(paths.shellProxyFile, 0o600);
     return;
   }
   const noProxy = 'localhost,127.0.0.1,::1,gitlab.reallab.org.cn,.reallab.org.cn,.local';
   fs.writeFileSync(
     paths.shellProxyFile,
-    `# Generated by svpn.\nexport SILVERVPN_PROXY_ENABLED=1\nexport HTTP_PROXY='http://127.0.0.1:${ports.http}'\nexport HTTPS_PROXY='http://127.0.0.1:${ports.http}'\nexport ALL_PROXY='http://127.0.0.1:${ports.http}'\nexport http_proxy=\"$HTTP_PROXY\"\nexport https_proxy=\"$HTTPS_PROXY\"\nexport all_proxy=\"$ALL_PROXY\"\nexport NO_PROXY='${noProxy}'\nexport no_proxy=\"$NO_PROXY\"\n`
+    `# Generated by ${PRODUCT_NAME}.\nexport SOPHIAVPN_PROXY_ENABLED=1\nexport SILVERVPN_PROXY_ENABLED=1\nexport HTTP_PROXY='http://127.0.0.1:${ports.http}'\nexport HTTPS_PROXY='http://127.0.0.1:${ports.http}'\nexport ALL_PROXY='http://127.0.0.1:${ports.http}'\nexport http_proxy=\"$HTTP_PROXY\"\nexport https_proxy=\"$HTTPS_PROXY\"\nexport all_proxy=\"$ALL_PROXY\"\nexport NO_PROXY='${noProxy}'\nexport no_proxy=\"$NO_PROXY\"\n`
   );
   fs.chmodSync(paths.shellProxyFile, 0o600);
 }
@@ -823,7 +962,12 @@ function proxy(paths, args) {
     console.log('新的 shell 会自动清理；已安装 shell hook 的当前交互 shell 会在下一次提示符刷新。');
     return;
   }
+  const target = readShellProxyValue(paths, 'HTTP_PROXY') || readShellProxyValue(paths, 'HTTPS_PROXY') || readShellProxyValue(paths, 'ALL_PROXY');
+  const owner = ownerLabelForPort(paths, localPortFromProxyUrl(target));
   console.log(`终端代理：${shellProxyEnabled(paths) ? '已开启' : '未开启'}`);
+  console.log(`目标：${target || '无'}`);
+  console.log(`监听进程：${target ? owner : '无'}`);
+  console.log(`接管提示：运行 ${CLI_NAME} on 或在 App 点“启动”；已有终端执行 source ~/.config/SophiaVPN/shell-hook.sh 或打开新终端。`);
 }
 
 function updateVscodeSettingsFile(file, ports, enabled) {
@@ -845,12 +989,12 @@ function updateVscodeEnvFile(dir, enabled) {
   const file = assertPathInHome(path.join(dir, 'server-env-setup'), 'VS Code environment file');
   if (!enabled && !fs.existsSync(file)) return;
   ensureDir(dir);
-  const begin = '# >>> SilverVPN proxy >>>';
-  const end = '# <<< SilverVPN proxy <<<';
+  const begin = `# >>> ${PRODUCT_NAME} proxy >>>`;
+  const end = `# <<< ${PRODUCT_NAME} proxy <<<`;
   const current = readText(file);
-  const pattern = /# >>> SilverVPN proxy >>>[\s\S]*?# <<< SilverVPN proxy <<<\n?/g;
+  const pattern = /# >>> (?:SilverVPN|SophiaVPN) proxy >>>[\s\S]*?# <<< (?:SilverVPN|SophiaVPN) proxy <<<\n?/g;
   const cleaned = current.replace(pattern, '').replace(/\s+$/, '');
-  const block = `${begin}\nif [ -r "$HOME/.config/SilverVPN/shell-proxy.sh" ]; then\n  . "$HOME/.config/SilverVPN/shell-proxy.sh"\nfi\n${end}`;
+  const block = `${begin}\nif [ -r "$HOME/.config/SophiaVPN/shell-proxy.sh" ]; then\n  . "$HOME/.config/SophiaVPN/shell-proxy.sh"\nelif [ -r "$HOME/.config/SilverVPN/shell-proxy.sh" ]; then\n  . "$HOME/.config/SilverVPN/shell-proxy.sh"\nfi\n${end}`;
   const next = enabled ? `${cleaned ? `${cleaned}\n\n` : '#!/usr/bin/env bash\n'}${block}\n` : `${cleaned}${cleaned ? '\n' : ''}`;
   fs.writeFileSync(file, next);
   fs.chmodSync(file, 0o700);
@@ -893,7 +1037,7 @@ function configurePorts(paths, args) {
     return;
   }
   if (isRunning(paths)) {
-    throw new Error('SilverVPN is running. Run svpn off before changing this user\'s ports.');
+    throw new Error(`${PRODUCT_NAME} is running. Run ${CLI_NAME} off before changing this user's ports.`);
   }
   const ports = portsFromBase(normalizePort(base));
   const config = getServerConfig(paths);
@@ -1003,7 +1147,7 @@ function listProfiles(paths) {
 function resolveProfile(paths, value) {
   const profiles = readProfiles(paths);
   const input = String(value || '').trim();
-  if (!input) throw new Error('Usage: svpn profile use <number|name>');
+  if (!input) throw new Error(`Usage: ${CLI_NAME} profile use <number|name>`);
   if (/^\d+$/.test(input)) {
     const selected = profiles[Number(input) - 1];
     if (selected) return selected;
@@ -1032,12 +1176,12 @@ async function profile(paths, args) {
   const action = args._[1] || 'list';
   if (action === 'list') return listProfiles(paths);
   if (action === 'use') return useProfile(paths, args);
-  throw new Error('Usage: svpn profile list|use <number|name>');
+  throw new Error(`Usage: ${CLI_NAME} profile list|use <number|name>`);
 }
 
 async function importConfig(paths, args) {
   const source = args._[1];
-  if (!source) throw new Error('Usage: svpn import <subscription-url|sub://...|config.yaml> [profile-name]');
+  if (!source) throw new Error(`Usage: ${CLI_NAME} import <subscription-url|sub://...|config.yaml> [profile-name]`);
   const cli = path.join(APP_ROOT, 'cli.js');
   const result = spawnSync(process.execPath, [cli, 'import', source, '--data-dir', paths.dataDir], {
     encoding: 'utf8',
@@ -1055,18 +1199,18 @@ async function on(paths, args) {
   await start(paths, { ...args, proxy: false });
   proxy(paths, { ...args, _: ['proxy', 'on'] });
   vscode(paths, { ...args, _: ['vscode', 'on'] });
-  console.log('SilverVPN 一键开启完成。');
+  console.log(`${PRODUCT_NAME} 一键开启完成。`);
 }
 
 async function off(paths, args) {
   vscode(paths, { ...args, _: ['vscode', 'off'] });
   proxy(paths, { ...args, _: ['proxy', 'off'] });
   await stop(paths, { ...args, proxy: false });
-  console.log('SilverVPN 一键关闭完成。');
+  console.log(`${PRODUCT_NAME} 一键关闭完成。`);
 }
 
 function printHelp() {
-  console.log(`Usage: svpn <command>\n\nOne-click:\n  svpn on                       Start backend, terminal proxy and both VS Code Remote proxies\n  svpn off                      Stop and remove this user's proxy integrations\n  svpn status                   Human-friendly status\n\nCore commands:\n  svpn start [--proxy]          Start per-user proxy-only backend\n  svpn stop                     Stop backend\n  svpn restart [--proxy]        Restart backend\n\nProxy control:\n  svpn mode smart|global|direct Set proxy-only routing mode\n  svpn nodes [--delay]          List nodes, optionally with delays\n  svpn delay                    Alias for: svpn nodes --delay\n  svpn use <number|name>        Switch node and close old connections\n  svpn proxy on|off             Write per-user terminal proxy state\n  svpn vscode on|off            Configure Stable and Insiders Remote proxy\n\nSubscriptions:\n  svpn import <url|file> [name] Import and save a profile\n  svpn profile list             List subscription profiles\n  svpn profile use <number|name> Switch profile\n\nSetup:\n  svpn config ports <base-port> Set personal HTTP port base, e.g. 4880\n  svpn test                     Test IP/GitHub/Copilot/OpenAI/ChatGPT\n\nSafety:\n  - proxy-only: no TUN, routes, DNS or /etc changes.\n  - only the current user's HOME is modified.\n  - new shells automatically load proxy state through the installed shell hook.\n`);
+  console.log(`Usage: ${CLI_NAME} <command>\n\nOne-click:\n  ${CLI_NAME} on                       Start backend, terminal proxy and both VS Code Remote proxies\n  ${CLI_NAME} off                      Stop and remove this user's proxy integrations\n  ${CLI_NAME} status                   Human-friendly status\n\nCore commands:\n  ${CLI_NAME} start [--proxy]          Start per-user proxy-only backend\n  ${CLI_NAME} stop                     Stop backend\n  ${CLI_NAME} restart [--proxy]        Restart backend\n\nProxy control:\n  ${CLI_NAME} mode smart|global|direct Set proxy-only routing mode\n  ${CLI_NAME} nodes [--delay]          List nodes, optionally with delays\n  ${CLI_NAME} delay                    Alias for: ${CLI_NAME} nodes --delay\n  ${CLI_NAME} use <number|name>        Switch node and close old connections\n  ${CLI_NAME} proxy on|off             Write per-user terminal proxy state\n  ${CLI_NAME} vscode on|off            Configure Stable and Insiders Remote proxy\n\nSubscriptions:\n  ${CLI_NAME} import <url|file> [name] Import and save a profile\n  ${CLI_NAME} profile list             List subscription profiles\n  ${CLI_NAME} profile use <number|name> Switch profile\n\nSetup:\n  ${CLI_NAME} config ports <base-port> Set personal HTTP port base, e.g. 4880\n  ${CLI_NAME} test                     Test IP/GitHub/Copilot/OpenAI/ChatGPT\n\nCompatibility:\n  ${COMPAT_CLI_NAME} remains available as a migration alias.\n\nSafety:\n  - proxy-only: no TUN, routes, DNS or /etc changes.\n  - only the current user's HOME is modified.\n  - new shells automatically load proxy state through the installed shell hook.\n`);
 }
 
 async function main() {
