@@ -1,24 +1,25 @@
 {
-  "name": "silvervpn",
+  "name": "sophiavpn",
   "version": "0.1.0",
   "private": true,
-  "description": "SilverVPN Linux/macOS VPN and proxy client.",
+  "description": "SophiaVPN macOS VPN and proxy client.",
   "main": "main-macos.js",
-  "productName": "SilverVPN",
+  "productName": "SophiaVPN",
   "scripts": {
     "cli": "node cli.js",
+    "sophia": "bin/sophia",
     "svpn": "bin/svpn",
+    "install:sophia": "./scripts/install-sophia.sh",
     "install:svpn": "./scripts/install-svpn.sh",
     "serve": "node cli.js serve",
     "doctor": "node cli.js doctor",
     "verify": "node scripts/verify.js",
     "verify:full": "node scripts/verify.js --require-subscription",
-    "verify:real": "node scripts/verify.js --require-subscription --real-url 38DFF325-8AE6-40A3-A8CD-4774DFE711E2.url",
     "start": "electron .",
     "install:desktop": "./scripts/install.sh",
     "update:desktop": "./scripts/update.sh",
-    "check": "node --check cli.js && node --check bin/svpn.js && node --check bin/svpn-import.js && node --check bin/svpn-profile.js && bash -n bin/svpn && bash -n scripts/macos-system-proxy.sh && node --check main.js && node --check main-macos.js && node --check preload.js && node --check preload-macos.js && node --check renderer/app.js && node --check scripts/verify.js",
-    "pack": "electron-builder --mac dmg zip --linux AppImage deb"
+    "check": "node --check cli.js && node --check bin/svpn.js && bash -n bin/sophia && bash -n bin/svpn && bash -n scripts/macos-system-proxy.sh && bash -n scripts/macos-conflict-check.sh && node --check main.js && node --check main-macos.js && node --check preload.js && node --check preload-macos.js && node --check renderer/app.js && node --check scripts/verify.js",
+    "pack": "electron-builder --mac dmg zip"
   },
   "dependencies": {
     "js-yaml": "4.1.0"
@@ -28,8 +29,8 @@
     "electron-builder": "^22.14.13"
   },
   "build": {
-    "appId": "com.silver.vpn",
-    "productName": "SilverVPN",
+    "appId": "com.sophia.vpn",
+    "productName": "SophiaVPN",
     "files": [
       "main.js",
       "main-macos.js",
@@ -51,13 +52,6 @@
       "target": [
         "dmg",
         "zip"
-      ]
-    },
-    "linux": {
-      "category": "Network",
-      "target": [
-        "AppImage",
-        "deb"
       ]
     }
   }
