@@ -7,9 +7,9 @@ const path = require('path');
 const { spawn } = require('child_process');
 
 const APP_ROOT = __dirname;
-const DATA_DIR = path.join(os.homedir(), '.config', 'SilverVPN');
+const DATA_DIR = process.env.SOPHIAVPN_DATA_DIR || path.join(os.homedir(), '.config', 'SophiaVPN');
 const LOG_DIR = path.join(DATA_DIR, 'logs');
-const SVPN = path.join(APP_ROOT, 'bin', 'svpn');
+const SOPHIA = path.join(APP_ROOT, 'bin', 'sophia');
 let mainWindow = null;
 
 function ensureDir(dir) {
@@ -22,6 +22,8 @@ function coreEnv() {
   return {
     ...process.env,
     PATH: `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:${process.env.PATH || ''}`,
+    SOPHIAVPN_DATA_DIR: DATA_DIR,
+    SILVERVPN_DATA_DIR: DATA_DIR,
     ...(fs.existsSync(core) ? { CLASH_CORE: core } : {})
   };
 }
@@ -46,11 +48,11 @@ function run(command, args = [], options = {}) {
   });
 }
 
-async function svpn(args = []) {
-  if (!fs.existsSync(SVPN)) {
-    return { ok: false, code: -1, stdout: '', stderr: `svpn wrapper not found: ${SVPN}` };
+async function sophia(args = []) {
+  if (!fs.existsSync(SOPHIA)) {
+    return { ok: false, code: -1, stdout: '', stderr: `SophiaVPN wrapper not found: ${SOPHIA}` };
   }
-  return run('bash', [SVPN, ...args]);
+  return run('bash', [SOPHIA, ...args]);
 }
 
 function resultText(result) {
@@ -66,17 +68,19 @@ function parseStatusJson(raw) {
 }
 
 async function buildDashboard() {
-  const statusResult = await svpn(['status', '--json']);
+  const statusResult = await sophia(['status', '--json']);
   const status = parseStatusJson(statusResult.stdout) || null;
-  const textResult = await svpn(['status']);
-  const profileResult = await svpn(['profile', 'list']);
-  const nodeResult = status && status.running ? await svpn(['nodes']) : { ok: true, stdout: 'Core is not running.', stderr: '' };
+  const textResult = await sophia(['status']);
+  const profileResult = await sophia(['profile', 'list']);
+  const nodeResult = status && status.running ? await sophia(['nodes']) : { ok: true, stdout: 'Core is not running.', stderr: '' };
+  const conflictResult = await sophia(['conflicts']);
   return {
     ok: statusResult.ok,
     status,
     statusText: resultText(textResult) || resultText(statusResult),
     profilesText: resultText(profileResult),
     nodesText: resultText(nodeResult),
+    conflictsText: resultText(conflictResult),
     dataDir: DATA_DIR,
     logDir: LOG_DIR
   };
@@ -86,55 +90,60 @@ async function handleAction(action, payload = {}) {
   switch (action) {
     case 'dashboard':
       return buildDashboard();
+    case 'install-sophia':
     case 'install-svpn': {
-      const result = await run('bash', [path.join(APP_ROOT, 'scripts', 'install-svpn.sh')]);
+      const result = await run('bash', [path.join(APP_ROOT, 'scripts', 'install-sophia.sh')]);
+      return { ...result, text: resultText(result), dashboard: await buildDashboard() };
+    }
+    case 'conflicts': {
+      const result = await sophia(['conflicts']);
       return { ...result, text: resultText(result), dashboard: await buildDashboard() };
     }
     case 'import': {
       const source = String(payload.source || '').trim();
       const name = String(payload.name || 'My Profile').trim() || 'My Profile';
       if (!source) throw new Error('Subscription URL or file is required.');
-      const result = await svpn(['import', source, name]);
+      const result = await sophia(['import', source, name]);
       return { ...result, text: resultText(result), dashboard: await buildDashboard() };
     }
     case 'on': {
-      const result = await svpn(['on']);
+      const result = await sophia(['on']);
       return { ...result, text: resultText(result), dashboard: await buildDashboard() };
     }
     case 'off': {
-      const result = await svpn(['off']);
+      const result = await sophia(['off']);
       return { ...result, text: resultText(result), dashboard: await buildDashboard() };
     }
     case 'test': {
-      const result = await svpn(['test']);
+      const result = await sophia(['test']);
       return { ...result, text: resultText(result), dashboard: await buildDashboard() };
     }
     case 'nodes-delay': {
-      const result = await svpn(['nodes', '--delay']);
+      const result = await sophia(['nodes', '--delay']);
       return { ...result, text: resultText(result), dashboard: await buildDashboard() };
     }
     case 'use-node': {
       const node = String(payload.node || '').trim();
       if (!node) throw new Error('Node number or name is required.');
-      const result = await svpn(['use', node]);
+      const result = await sophia(['use', node]);
       return { ...result, text: resultText(result), dashboard: await buildDashboard() };
     }
     case 'mode': {
       const mode = String(payload.mode || 'smart').trim();
-      const result = await svpn(['mode', mode]);
+      const result = await sophia(['mode', mode]);
       return { ...result, text: resultText(result), dashboard: await buildDashboard() };
     }
     case 'profile-use': {
       const profile = String(payload.profile || '').trim();
       if (!profile) throw new Error('Profile number or name is required.');
-      const result = await svpn(['profile', 'use', profile]);
+      const result = await sophia(['profile', 'use', profile]);
       return { ...result, text: resultText(result), dashboard: await buildDashboard() };
     }
     case 'profile-rename': {
       const profile = String(payload.profile || '').trim();
       const name = String(payload.name || '').trim();
       if (!profile || !name) throw new Error('Profile selector and new name are required.');
-      const result = await svpn(['profile', 'rename', profile, name]);
+      const result = await sophia(['profile', 'rename', profile, name]);
       return { ...result, text: resultText(result), dashboard: await buildDashboard() };
     }
     case 'profile-delete': {
@@ -142,11 +151,11 @@ async function handleAction(action, payload = {}) {
       if (!profile) throw new Error('Profile selector is required.');
       const args = ['profile', 'delete', profile];
       if (payload.yes) args.push('--yes');
-      const result = await svpn(args);
+      const result = await sophia(args);
       return { ...result, text: resultText(result), dashboard: await buildDashboard() };
     }
     case 'system-proxy-status': {
-      const result = await svpn(['system-proxy', 'status']);
+      const result = await sophia(['system-proxy', 'status']);
       return { ...result, text: resultText(result), dashboard: await buildDashboard() };
     }
     case 'open-data-dir':
@@ -168,7 +177,7 @@ function createWindow() {
     height: 760,
     minWidth: 900,
     minHeight: 620,
-    title: 'SilverVPN for macOS',
+    title: 'SophiaVPN',
     webPreferences: {
       preload: path.join(APP_ROOT, 'preload-macos.js'),
       contextIsolation: true,
@@ -181,6 +190,7 @@ function createWindow() {
 app.whenReady().then(() => {
   ensureDir(DATA_DIR);
   ensureDir(LOG_DIR);
+  ipcMain.handle('SOPHIAVPN_MACOS', async (_event, action, payload) => handleAction(action, payload));
   ipcMain.handle('SILVERVPN_MACOS', async (_event, action, payload) => handleAction(action, payload));
   createWindow();
   app.on('activate', () => {
