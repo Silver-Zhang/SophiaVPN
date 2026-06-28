@@ -1,0 +1,67 @@
+name: Migrate from SilverVPN macOS branch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/migrate-from-silvervpn-macos.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout SophiaVPN
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Clone SilverVPN macOS branch
+        run: |
+          rm -rf /tmp/silvervpn-macos
+          git clone --depth 1 --branch macos https://github.com/Silver-Zhang/SilverVPN.git /tmp/silvervpn-macos
+
+      - name: Replace repository contents
+        run: |
+          find . -mindepth 1 \
+            ! -path './.git' \
+            ! -path './.git/*' \
+            -exec rm -rf {} +
+          rsync -a --delete --exclude '.git' /tmp/silvervpn-macos/ ./
+
+      - name: Add SophiaVPN migration note
+        run: |
+          cat > MIGRATION.md <<'EOF'
+          # SophiaVPN Migration
+
+          This repository was initialized from:
+
+          ```text
+          Silver-Zhang/SilverVPN:macos
+          ```
+
+          SophiaVPN is intended to continue as the macOS-specific VPN/proxy client, separated from the Linux/server-oriented SilverVPN project.
+
+          Immediate post-migration tasks:
+
+          1. Rename product identifiers from SilverVPN/svpn to SophiaVPN/sophia where appropriate.
+          2. Add macOS VPN/proxy conflict detection.
+          3. Change the default `sophia on` behavior so it does not automatically take over macOS system proxy when conflicting VPN/proxy clients are detected.
+          4. Keep iNodeVPN as an allowed coexistence case with clear warning text.
+          EOF
+
+      - name: Commit migrated tree
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "chore: migrate SilverVPN macOS branch into SophiaVPN"
+            git push origin HEAD:main
+          fi
