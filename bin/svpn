@@ -1,0 +1,184 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Resolve this wrapper's real path even when ~/.local/bin/svpn is a symlink.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR=$(cd -P "$(dirname "$SOURCE")" && pwd)
+  TARGET=$(readlink "$SOURCE")
+  if [[ "$TARGET" == /* ]]; then
+    SOURCE="$TARGET"
+  else
+    SOURCE="$DIR/$TARGET"
+  fi
+done
+APP_ROOT=$(cd "$(dirname "$SOURCE")/.." && pwd)
+JS="$APP_ROOT/bin/svpn.js"
+IMPORT_JS="$APP_ROOT/bin/svpn-import.js"
+PROFILE_JS="$APP_ROOT/bin/svpn-profile.js"
+MACOS_PROXY="$APP_ROOT/scripts/macos-system-proxy.sh"
+OS="$(uname -s)"
+ARCH="$(uname -m)"
+
+case "$ARCH" in
+  x86_64|amd64) CORE_ARCH="amd64" ;;
+  arm64|aarch64) CORE_ARCH="arm64" ;;
+  armv7l|armv7) CORE_ARCH="armv7" ;;
+  *) CORE_ARCH="$ARCH" ;;
+esac
+
+if [[ -z "${CLASH_CORE:-}" ]]; then
+  if [[ "$OS" == "Darwin" && -x "$APP_ROOT/resources/clash-binaries/mihomo-darwin-$CORE_ARCH" ]]; then
+    export CLASH_CORE="$APP_ROOT/resources/clash-binaries/mihomo-darwin-$CORE_ARCH"
+  elif [[ -x "$APP_ROOT/resources/clash-binaries/mihomo-linux-$CORE_ARCH" ]]; then
+    export CLASH_CORE="$APP_ROOT/resources/clash-binaries/mihomo-linux-$CORE_ARCH"
+  fi
+fi
+
+cmd="${1:-help}"
+
+run_node() {
+  node "$JS" "$@"
+}
+
+extract_ports() {
+  node -e '
+let raw = "";
+process.stdin.on("data", chunk => { raw += chunk; });
+process.stdin.on("end", () => {
+  try {
+    const data = JSON.parse(raw);
+    if (data && data.ports && data.ports.http && data.ports.socks) {
+      console.log(`${data.ports.http} ${data.ports.socks}`);
+      return;
+    }
+  } catch (_error) {}
+  process.exit(1);
+});
+'
+}
+
+format_http_state() {
+  local code="$1"
+  if [[ "$code" =~ ^[23][0-9][0-9]$ ]]; then
+    printf '可达 (HTTP %s)' "$code"
+  elif [[ "$code" == "401" ]]; then
+    printf '可达，需要认证 (HTTP 401)'
+  elif [[ "$code" == "403" ]]; then
+    printf '可达，但当前节点/服务拒绝访问 (HTTP 403)'
+  elif [[ "$code" =~ ^[45][0-9][0-9]$ ]]; then
+    printf '服务可达 (HTTP %s)' "$code"
+  else
+    printf '失败'
+  fi
+}
+
+test_url() {
+  local label="$1"
+  local url="$2"
+  local http_port="$3"
+  local code
+  code=$(
+    HTTP_PROXY="http://127.0.0.1:${http_port}" \
+    HTTPS_PROXY="http://127.0.0.1:${http_port}" \
+    ALL_PROXY="http://127.0.0.1:${http_port}" \
+    http_proxy="http://127.0.0.1:${http_port}" \
+    https_proxy="http://127.0.0.1:${http_port}" \
+    all_proxy="http://127.0.0.1:${http_port}" \
+    curl -sS -L -o /dev/null -w '%{http_code}' --max-time 25 "$url" 2>/dev/null || true
+  )
+  printf '%s：%s\n' "$label" "$(format_http_state "$code")"
+}
+
+current_ports() {
+  local status_json
+  status_json=$(run_node status --json 2>/dev/null || true)
+  printf '%s' "$status_json" | extract_ports 2>/dev/null || true
+}
+
+macos_system_proxy() {
+  local action="$1"
+  if [[ "$OS" != "Darwin" ]]; then
+    return 0
+  fi
+  local ports http_port socks_port
+  ports=$(current_ports)
+  http_port="${ports%% *}"
+  socks_port="${ports##* }"
+  if [[ -z "${http_port:-}" || -z "${socks_port:-}" || ! -x "$MACOS_PROXY" ]]; then
+    echo 'macOS 系统代理：未配置（无法读取端口或 helper 不可执行）'
+    return 0
+  fi
+  "$MACOS_PROXY" "$action" "$http_port" "$socks_port"
+}
+
+case "$cmd" in
+  on)
+    shift || true
+    run_node start --proxy "$@"
+    run_node vscode on "$@"
+    macos_system_proxy on
+    echo 'SilverVPN 一键开启完成。'
+    ;;
+  off)
+    shift || true
+    macos_system_proxy off || true
+    run_node vscode off "$@" || true
+    run_node proxy off "$@" || true
+    run_node stop "$@" || true
+    echo 'SilverVPN 一键关闭完成。'
+    ;;
+  system-proxy)
+    shift || true
+    action="${1:-status}"
+    macos_system_proxy "$action"
+    ;;
+  import)
+    shift || true
+    node "$IMPORT_JS" "$@"
+    if run_node status --json >/tmp/svpn-status-$$.json 2>/dev/null; then
+      if grep -q '"running": true' /tmp/svpn-status-$$.json; then
+        echo '检测到后台正在运行，正在重启以应用新订阅...'
+        run_node restart || true
+      fi
+    fi
+    rm -f /tmp/svpn-status-$$.json
+    ;;
+  profile)
+    subcmd="${2:-list}"
+    if [[ -x "$PROFILE_JS" && ( "$subcmd" == "rename" || "$subcmd" == "delete" || "$subcmd" == "remove" || "$subcmd" == "rm" ) ]]; then
+      shift || true
+      node "$PROFILE_JS" "$@"
+    else
+      exec node "$JS" "$@"
+    fi
+    ;;
+  test)
+    shift || true
+    run_node test "$@"
+    ports=$(current_ports)
+    http_port="${ports%% *}"
+    if [ -n "${http_port:-}" ]; then
+      test_url 'Claude' 'https://claude.ai' "$http_port"
+      test_url 'Anthropic API' 'https://api.anthropic.com' "$http_port"
+    else
+      echo 'Claude：未测试（无法读取当前 HTTP 端口）'
+      echo 'Anthropic API：未测试（无法读取当前 HTTP 端口）'
+    fi
+    ;;
+  help|--help|-h)
+    run_node help
+    echo
+    echo 'Extended wrapper:'
+    echo '  svpn on                         Start backend, terminal proxy, VS Code proxy, and macOS system proxy when running on macOS.'
+    echo '  svpn off                        Stop backend and remove user-level proxy integrations.'
+    echo '  svpn system-proxy on|off|status Manage macOS system proxy explicitly.'
+    echo '  svpn import                     Imports Clash/Mihomo YAML and URI subscriptions: ss, ssr, vmess, trojan, vless, hysteria2/hy2, tuic, snell.'
+    echo '  svpn profile rename <id> <name> Rename a saved subscription profile when profile manager is available.'
+    echo '  svpn profile delete <id> --yes  Delete a saved subscription profile when profile manager is available.'
+    echo '  svpn test                       Includes Claude and Anthropic API checks in addition to the core tests.'
+    ;;
+  *)
+    exec node "$JS" "$@"
+    ;;
+esac

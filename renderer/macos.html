@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SilverVPN for macOS</title>
+  <style>
+    :root { color-scheme: light dark; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { margin: 0; background: #f5f5f7; color: #1d1d1f; }
+    header { padding: 22px 28px; background: #ffffff; border-bottom: 1px solid #d2d2d7; }
+    h1 { margin: 0; font-size: 26px; }
+    header p { margin: 8px 0 0; color: #6e6e73; }
+    main { padding: 24px 28px; display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+    section { background: #ffffff; border: 1px solid #d2d2d7; border-radius: 14px; padding: 18px; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    section.full { grid-column: 1 / -1; }
+    h2 { margin: 0 0 12px; font-size: 18px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+    button { border: 0; border-radius: 9px; padding: 8px 12px; background: #0a84ff; color: white; font-weight: 600; cursor: pointer; }
+    button.secondary { background: #e8e8ed; color: #1d1d1f; }
+    button.danger { background: #ff453a; }
+    input, select { border: 1px solid #c7c7cc; border-radius: 8px; padding: 8px 10px; min-width: 180px; background: #fff; color: #1d1d1f; }
+    input.long { min-width: 360px; flex: 1; }
+    pre { white-space: pre-wrap; word-break: break-word; background: #1e1e1e; color: #f5f5f7; padding: 14px; border-radius: 10px; max-height: 260px; overflow: auto; }
+    .status { display: grid; grid-template-columns: 140px 1fr; gap: 8px 12px; font-size: 14px; }
+    .muted { color: #6e6e73; }
+    .ok { color: #248a3d; font-weight: 700; }
+    .bad { color: #d70015; font-weight: 700; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #111; color: #f5f5f7; }
+      header, section { background: #1c1c1e; border-color: #38383a; }
+      input, select { background: #2c2c2e; color: #f5f5f7; border-color: #48484a; }
+      button.secondary { background: #3a3a3c; color: #f5f5f7; }
+      .muted { color: #a1a1a6; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>SilverVPN for macOS</h1>
+    <p>Proxy-only desktop controller for mihomo subscriptions. TUN is disabled in this macOS branch.</p>
+  </header>
+
+  <main>
+    <section>
+      <h2>Connection</h2>
+      <div class="status" id="statusBox"></div>
+      <div class="row">
+        <button onclick="runAction('on')">Turn On</button>
+        <button class="danger" onclick="runAction('off')">Turn Off</button>
+        <button class="secondary" onclick="refresh()">Refresh</button>
+      </div>
+      <div class="row">
+        <button class="secondary" onclick="runAction('test')">Connectivity Test</button>
+        <button class="secondary" onclick="runAction('system-proxy-status')">System Proxy Status</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Import Subscription</h2>
+      <div class="row">
+        <input class="long" id="subscription" placeholder="Subscription URL or local config path" />
+      </div>
+      <div class="row">
+        <input id="profileName" placeholder="Profile name" value="My Profile" />
+        <button onclick="importProfile()">Import</button>
+      </div>
+      <p class="muted">Do not paste private subscription URLs into public logs, screenshots, issues or documentation.</p>
+    </section>
+
+    <section>
+      <h2>Profiles</h2>
+      <pre id="profiles">Loading...</pre>
+      <div class="row">
+        <input id="profileSelector" placeholder="number / name / id" />
+        <button onclick="profileUse()">Use</button>
+      </div>
+      <div class="row">
+        <input id="profileRenameSelector" placeholder="profile to rename" />
+        <input id="profileNewName" placeholder="new name" />
+        <button onclick="profileRename()">Rename</button>
+      </div>
+      <div class="row">
+        <input id="profileDeleteSelector" placeholder="profile to delete" />
+        <button class="danger" onclick="profileDelete()">Delete --yes</button>
+      </div>
+    </section>
+
+    <section>
+      <h2>Nodes and Mode</h2>
+      <pre id="nodes">Loading...</pre>
+      <div class="row">
+        <input id="nodeSelector" placeholder="node number or name" />
+        <button onclick="useNode()">Use Node</button>
+        <button class="secondary" onclick="runAction('nodes-delay')">Delay Test</button>
+      </div>
+      <div class="row">
+        <button class="secondary" onclick="setMode('smart')">Smart</button>
+        <button class="secondary" onclick="setMode('global')">Global</button>
+        <button class="secondary" onclick="setMode('direct')">Direct</button>
+      </div>
+    </section>
+
+    <section class="full">
+      <h2>Output</h2>
+      <pre id="output">Ready.</pre>
+      <div class="row">
+        <button class="secondary" onclick="openDataDir()">Open Data Directory</button>
+        <button class="secondary" onclick="openLogDir()">Open Logs</button>
+        <button class="secondary" onclick="runAction('install-svpn')">Reinstall svpn CLI</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const api = window.silverVPN;
+
+    function text(id, value) {
+      document.getElementById(id).textContent = value || '';
+    }
+
+    function setOutput(value) {
+      text('output', value || 'Done.');
+    }
+
+    function renderDashboard(dashboard) {
+      const status = dashboard && dashboard.status;
+      const running = status && status.running;
+      const ports = status && status.ports ? status.ports : {};
+      document.getElementById('statusBox').innerHTML = `
+        <div>Backend</div><div class="${running ? 'ok' : 'bad'}">${running ? 'Running' : 'Stopped'}</div>
+        <div>Mode</div><div>${status ? status.mode : '-'}</div>
+        <div>Node</div><div>${status ? status.node : '-'}</div>
+        <div>HTTP</div><div>${ports.http || '-'}</div>
+        <div>SOCKS</div><div>${ports.socks || '-'}</div>
+        <div>Terminal proxy</div><div>${status && status.terminalProxy ? 'On' : 'Off'}</div>
+        <div>Data</div><div>${dashboard ? dashboard.dataDir : '-'}</div>
+      `;
+      text('profiles', dashboard ? dashboard.profilesText || 'No profiles.' : 'No profiles.');
+      text('nodes', dashboard ? dashboard.nodesText || 'No nodes.' : 'No nodes.');
+    }
+
+    async function call(action, payload = {}) {
+      try {
+        setOutput(`Running: ${action} ...`);
+        const result = await api.invoke(action, payload);
+        if (result && result.dashboard) renderDashboard(result.dashboard);
+        if (result && result.text) setOutput(result.text);
+        else if (result && typeof result === 'object') setOutput(JSON.stringify(result, null, 2));
+        else setOutput(String(result || 'Done.'));
+        return result;
+      } catch (error) {
+        setOutput(error.message || String(error));
+      }
+    }
+
+    async function refresh() {
+      const result = await api.invoke('dashboard');
+      renderDashboard(result);
+      setOutput(result.statusText || 'Refreshed.');
+    }
+
+    function runAction(action) { return call(action); }
+
+    function importProfile() {
+      return call('import', {
+        source: document.getElementById('subscription').value,
+        name: document.getElementById('profileName').value
+      });
+    }
+
+    function profileUse() {
+      return call('profile-use', { profile: document.getElementById('profileSelector').value });
+    }
+
+    function profileRename() {
+      return call('profile-rename', {
+        profile: document.getElementById('profileRenameSelector').value,
+        name: document.getElementById('profileNewName').value
+      });
+    }
+
+    function profileDelete() {
+      return call('profile-delete', { profile: document.getElementById('profileDeleteSelector').value, yes: true });
+    }
+
+    function useNode() {
+      return call('use-node', { node: document.getElementById('nodeSelector').value });
+    }
+
+    function setMode(mode) { return call('mode', { mode }); }
+    function openDataDir() { return call('open-data-dir'); }
+    function openLogDir() { return call('open-log-dir'); }
+
+    refresh();
+  </script>
+</body>
+</html>

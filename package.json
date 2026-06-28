@@ -1,0 +1,64 @@
+{
+  "name": "silvervpn",
+  "version": "0.1.0",
+  "private": true,
+  "description": "SilverVPN Linux/macOS VPN and proxy client.",
+  "main": "main-macos.js",
+  "productName": "SilverVPN",
+  "scripts": {
+    "cli": "node cli.js",
+    "svpn": "bin/svpn",
+    "install:svpn": "./scripts/install-svpn.sh",
+    "serve": "node cli.js serve",
+    "doctor": "node cli.js doctor",
+    "verify": "node scripts/verify.js",
+    "verify:full": "node scripts/verify.js --require-subscription",
+    "verify:real": "node scripts/verify.js --require-subscription --real-url 38DFF325-8AE6-40A3-A8CD-4774DFE711E2.url",
+    "start": "electron .",
+    "install:desktop": "./scripts/install.sh",
+    "update:desktop": "./scripts/update.sh",
+    "check": "node --check cli.js && node --check bin/svpn.js && node --check bin/svpn-import.js && node --check bin/svpn-profile.js && bash -n bin/svpn && bash -n scripts/macos-system-proxy.sh && node --check main.js && node --check main-macos.js && node --check preload.js && node --check preload-macos.js && node --check renderer/app.js && node --check scripts/verify.js",
+    "pack": "electron-builder --mac dmg zip --linux AppImage deb"
+  },
+  "dependencies": {
+    "js-yaml": "4.1.0"
+  },
+  "devDependencies": {
+    "electron": "12.2.3",
+    "electron-builder": "^22.14.13"
+  },
+  "build": {
+    "appId": "com.silver.vpn",
+    "productName": "SilverVPN",
+    "files": [
+      "main.js",
+      "main-macos.js",
+      "cli.js",
+      "bin/**/*",
+      "preload.js",
+      "preload-macos.js",
+      "package.json",
+      "renderer/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "resources",
+        "to": "resources"
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg",
+        "zip"
+      ]
+    },
+    "linux": {
+      "category": "Network",
+      "target": [
+        "AppImage",
+        "deb"
+      ]
+    }
+  }
+}
