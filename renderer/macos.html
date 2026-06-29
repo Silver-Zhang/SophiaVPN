@@ -9,8 +9,36 @@
     :root {
       color-scheme: light;
       --bg: #f5f6f8;
+      --page-bg-start: #fbfbfd;
+      --page-bg-end: #eff1f5;
+      --body-glow-a: rgba(232, 63, 131, 0.10);
+      --body-glow-b: rgba(35, 104, 232, 0.08);
       --surface: #ffffff;
       --surface-soft: #f8f9fc;
+      --sidebar-bg: rgba(255, 255, 255, 0.76);
+      --sidebar-line: rgba(213, 217, 226, 0.82);
+      --panel-bg: rgba(255, 255, 255, 0.88);
+      --panel-line: rgba(211, 216, 226, 0.88);
+      --card-bg: rgba(255, 255, 255, 0.82);
+      --card-bg-soft: rgba(255, 255, 255, 0.58);
+      --glass-bg: rgba(255, 255, 255, 0.64);
+      --glass-bg-strong: rgba(255, 255, 255, 0.78);
+      --glass-line: rgba(255, 255, 255, 0.58);
+      --glass-highlight: rgba(255, 255, 255, 0.78);
+      --glass-blur: 22px;
+      --input-bg: rgba(255, 255, 255, 0.68);
+      --secondary-bg: rgba(241, 243, 247, 0.70);
+      --secondary-text: #222631;
+      --nav-text: #343842;
+      --nav-active-bg: linear-gradient(90deg, rgba(232, 63, 131, 0.16), rgba(232, 63, 131, 0.06));
+      --brand-start: #ff74ad;
+      --brand-end: #e52d7c;
+      --brand-shadow: rgba(232, 63, 131, 0.28);
+      --primary-start: #f04c91;
+      --primary-end: #d92c78;
+      --button-shadow: rgba(35, 104, 232, 0.18);
+      --chart-bg: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(248,249,252,0.88));
+      --output-bg: linear-gradient(180deg, #fbfcfe, #f7f8fb);
       --text: #17181d;
       --muted: #6c7280;
       --subtle: #969daa;
@@ -19,6 +47,28 @@
       --pink: #e83f83;
       --pink-strong: #c7286c;
       --pink-soft: #fff0f7;
+      --accent: #e83f83;
+      --accent-rgb: 232, 63, 131;
+      --accent-strong: #c7286c;
+      --accent-soft: #fff0f7;
+      --accent-2: #2368e8;
+      --accent-2-rgb: 35, 104, 232;
+      --hero-bg-a: rgba(255, 255, 255, 0.94);
+      --hero-bg-b: rgba(248, 251, 255, 0.88);
+      --hero-text: #17181d;
+      --hero-muted: #6c7280;
+      --hero-line: rgba(196, 204, 218, 0.72);
+      --hero-glass: rgba(255, 255, 255, 0.72);
+      --hero-glow-a: rgba(232, 63, 131, 0.15);
+      --hero-glow-b: rgba(35, 104, 232, 0.13);
+      --hero-stopped-glow-a: rgba(150, 157, 170, 0.14);
+      --hero-stopped-glow-b: rgba(108, 114, 128, 0.10);
+      --hero-overlay-a: rgba(255,255,255,0.88);
+      --hero-overlay-b: rgba(255,255,255,0.58);
+      --hero-overlay-c: rgba(255,255,255,0.24);
+      --hero-overlay-d: rgba(255,255,255,0.32);
+      --particle-line: 80, 122, 178;
+      --particle-dot: 232, 63, 131;
       --blue: #2368e8;
       --blue-soft: #eef4ff;
       --green: #14804a;
@@ -37,11 +87,165 @@
     body {
       margin: 0;
       background:
-        radial-gradient(circle at 14% 10%, rgba(232, 63, 131, 0.10), transparent 25%),
-        radial-gradient(circle at 88% 20%, rgba(35, 104, 232, 0.08), transparent 24%),
-        linear-gradient(180deg, #fbfbfd 0%, var(--bg) 54%, #eff1f5 100%);
+        radial-gradient(circle at 14% 10%, var(--body-glow-a), transparent 25%),
+        radial-gradient(circle at 88% 20%, var(--body-glow-b), transparent 24%),
+        linear-gradient(180deg, var(--page-bg-start) 0%, var(--bg) 54%, var(--page-bg-end) 100%);
       color: var(--text);
       font-size: 14px;
+    }
+
+    body[data-theme="ocean"] {
+      --bg: #edf6fb;
+      --page-bg-start: #f8fdff;
+      --page-bg-end: #e4f0f8;
+      --body-glow-a: rgba(31, 139, 184, 0.16);
+      --body-glow-b: rgba(29, 110, 232, 0.10);
+      --surface: #fbfdff;
+      --surface-soft: #eef8fd;
+      --sidebar-bg: rgba(246, 252, 255, 0.80);
+      --sidebar-line: rgba(174, 207, 225, 0.86);
+      --panel-bg: rgba(251, 254, 255, 0.90);
+      --panel-line: rgba(176, 207, 226, 0.86);
+      --card-bg: rgba(249, 253, 255, 0.86);
+      --card-bg-soft: rgba(235, 247, 253, 0.68);
+      --glass-bg: rgba(247, 253, 255, 0.62);
+      --glass-bg-strong: rgba(249, 254, 255, 0.78);
+      --glass-line: rgba(255, 255, 255, 0.62);
+      --glass-highlight: rgba(255, 255, 255, 0.84);
+      --input-bg: rgba(251, 253, 255, 0.68);
+      --secondary-bg: rgba(231, 243, 251, 0.72);
+      --secondary-text: #173c4d;
+      --nav-text: #284757;
+      --nav-active-bg: linear-gradient(90deg, rgba(31, 139, 184, 0.18), rgba(29, 110, 232, 0.08));
+      --brand-start: #4fb5d8;
+      --brand-end: #16769e;
+      --brand-shadow: rgba(31, 139, 184, 0.25);
+      --primary-start: #2ca7d0;
+      --primary-end: #126c93;
+      --button-shadow: rgba(29, 110, 232, 0.18);
+      --chart-bg: linear-gradient(180deg, rgba(251,254,255,0.94), rgba(235,247,253,0.90));
+      --output-bg: linear-gradient(180deg, #f7fcff, #eaf5fb);
+      --pink: #1f8bb8;
+      --pink-strong: #126c93;
+      --pink-soft: #eaf8ff;
+      --accent: #1f8bb8;
+      --accent-rgb: 31, 139, 184;
+      --accent-strong: #126c93;
+      --accent-soft: #eaf8ff;
+      --accent-2: #1d6ee8;
+      --accent-2-rgb: 29, 110, 232;
+      --hero-bg-a: rgba(251, 254, 255, 0.95);
+      --hero-bg-b: rgba(235, 247, 253, 0.90);
+      --hero-line: rgba(150, 196, 220, 0.70);
+      --hero-glass: rgba(248, 253, 255, 0.74);
+      --hero-glow-a: rgba(31, 139, 184, 0.15);
+      --hero-glow-b: rgba(29, 110, 232, 0.13);
+      --particle-line: 31, 139, 184;
+      --particle-dot: 29, 110, 232;
+      --blue: #1d6ee8;
+      --blue-soft: #edf5ff;
+    }
+    body[data-theme="graphite"] {
+      --bg: #eef0f3;
+      --page-bg-start: #f8f9fb;
+      --page-bg-end: #e4e7ec;
+      --body-glow-a: rgba(95, 104, 120, 0.14);
+      --body-glow-b: rgba(45, 95, 186, 0.08);
+      --surface: #fbfbfc;
+      --surface-soft: #f1f3f6;
+      --sidebar-bg: rgba(248, 249, 251, 0.82);
+      --sidebar-line: rgba(188, 194, 204, 0.88);
+      --panel-bg: rgba(250, 251, 252, 0.90);
+      --panel-line: rgba(190, 196, 207, 0.88);
+      --card-bg: rgba(248, 249, 251, 0.86);
+      --card-bg-soft: rgba(238, 241, 245, 0.70);
+      --glass-bg: rgba(247, 248, 250, 0.64);
+      --glass-bg-strong: rgba(250, 251, 252, 0.80);
+      --glass-line: rgba(255, 255, 255, 0.66);
+      --glass-highlight: rgba(255, 255, 255, 0.80);
+      --input-bg: rgba(251, 251, 252, 0.68);
+      --secondary-bg: rgba(236, 239, 243, 0.74);
+      --secondary-text: #2d333d;
+      --nav-text: #3a414d;
+      --nav-active-bg: linear-gradient(90deg, rgba(95, 104, 120, 0.18), rgba(45, 95, 186, 0.07));
+      --brand-start: #8b94a3;
+      --brand-end: #48515f;
+      --brand-shadow: rgba(95, 104, 120, 0.24);
+      --primary-start: #727c8d;
+      --primary-end: #343b48;
+      --button-shadow: rgba(45, 95, 186, 0.16);
+      --chart-bg: linear-gradient(180deg, rgba(250,251,252,0.94), rgba(240,243,247,0.90));
+      --output-bg: linear-gradient(180deg, #fbfbfc, #eef1f5);
+      --pink: #5f6878;
+      --pink-strong: #343b48;
+      --pink-soft: #f1f3f6;
+      --accent: #5f6878;
+      --accent-rgb: 95, 104, 120;
+      --accent-strong: #343b48;
+      --accent-soft: #f1f3f6;
+      --accent-2: #2d5fba;
+      --accent-2-rgb: 45, 95, 186;
+      --hero-bg-a: rgba(250, 251, 252, 0.95);
+      --hero-bg-b: rgba(240, 243, 247, 0.90);
+      --hero-line: rgba(176, 184, 198, 0.72);
+      --hero-glass: rgba(248, 249, 251, 0.76);
+      --hero-glow-a: rgba(95, 104, 120, 0.16);
+      --hero-glow-b: rgba(45, 95, 186, 0.12);
+      --particle-line: 95, 104, 120;
+      --particle-dot: 45, 95, 186;
+      --blue: #2d5fba;
+      --blue-soft: #eef3ff;
+    }
+    body[data-theme="mint"] {
+      --bg: #edf8f4;
+      --page-bg-start: #f9fffc;
+      --page-bg-end: #e3f2ed;
+      --body-glow-a: rgba(18, 167, 120, 0.14);
+      --body-glow-b: rgba(36, 110, 232, 0.08);
+      --surface: #fbfffd;
+      --surface-soft: #effaf6;
+      --sidebar-bg: rgba(247, 254, 251, 0.80);
+      --sidebar-line: rgba(171, 216, 200, 0.86);
+      --panel-bg: rgba(251, 255, 253, 0.90);
+      --panel-line: rgba(174, 217, 202, 0.86);
+      --card-bg: rgba(248, 254, 251, 0.86);
+      --card-bg-soft: rgba(234, 249, 244, 0.70);
+      --glass-bg: rgba(247, 255, 251, 0.62);
+      --glass-bg-strong: rgba(250, 255, 253, 0.78);
+      --glass-line: rgba(255, 255, 255, 0.64);
+      --glass-highlight: rgba(255, 255, 255, 0.84);
+      --input-bg: rgba(251, 255, 253, 0.68);
+      --secondary-bg: rgba(231, 246, 241, 0.72);
+      --secondary-text: #163f33;
+      --nav-text: #284b40;
+      --nav-active-bg: linear-gradient(90deg, rgba(18, 167, 120, 0.18), rgba(36, 110, 232, 0.07));
+      --brand-start: #44d3a5;
+      --brand-end: #0b8a65;
+      --brand-shadow: rgba(18, 167, 120, 0.25);
+      --primary-start: #22bc89;
+      --primary-end: #087657;
+      --button-shadow: rgba(36, 110, 232, 0.16);
+      --chart-bg: linear-gradient(180deg, rgba(251,255,253,0.94), rgba(235,249,244,0.90));
+      --output-bg: linear-gradient(180deg, #f8fffc, #eaf8f3);
+      --pink: #12a778;
+      --pink-strong: #087657;
+      --pink-soft: #e9fbf5;
+      --accent: #12a778;
+      --accent-rgb: 18, 167, 120;
+      --accent-strong: #087657;
+      --accent-soft: #e9fbf5;
+      --accent-2: #246ee8;
+      --accent-2-rgb: 36, 110, 232;
+      --hero-bg-a: rgba(251, 255, 253, 0.95);
+      --hero-bg-b: rgba(235, 249, 244, 0.90);
+      --hero-line: rgba(148, 205, 185, 0.70);
+      --hero-glass: rgba(248, 255, 252, 0.74);
+      --hero-glow-a: rgba(18, 167, 120, 0.14);
+      --hero-glow-b: rgba(36, 110, 232, 0.12);
+      --particle-line: 18, 167, 120;
+      --particle-dot: 36, 110, 232;
+      --blue: #246ee8;
+      --blue-soft: #eef4ff;
     }
 
     .app-shell {
@@ -58,9 +262,10 @@
       flex-direction: column;
       gap: 22px;
       padding: 28px 16px 18px;
-      background: rgba(255, 255, 255, 0.76);
-      border-right: 1px solid rgba(213, 217, 226, 0.82);
-      backdrop-filter: blur(18px);
+      background: var(--sidebar-bg);
+      border-right: 1px solid var(--sidebar-line);
+      backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.3);
     }
 
     .brand { display: flex; align-items: center; gap: 12px; padding: 2px 8px 14px; }
@@ -70,8 +275,8 @@
       border-radius: 12px;
       display: grid;
       place-items: center;
-      background: linear-gradient(145deg, #ff74ad, #e52d7c);
-      box-shadow: 0 10px 24px rgba(232, 63, 131, 0.28);
+      background: linear-gradient(145deg, var(--brand-start), var(--brand-end));
+      box-shadow: 0 10px 24px var(--brand-shadow);
       color: #fff;
       font-size: 24px;
       line-height: 1;
@@ -85,7 +290,7 @@
       min-height: 44px;
       justify-content: flex-start;
       padding: 0 12px;
-      color: #343842;
+      color: var(--nav-text);
       background: transparent;
       border: 0;
       box-shadow: none;
@@ -93,7 +298,7 @@
       font-weight: 680;
     }
     .nav-item.active {
-      background: linear-gradient(90deg, rgba(232, 63, 131, 0.16), rgba(232, 63, 131, 0.06));
+      background: var(--nav-active-bg);
       color: var(--pink-strong);
     }
     .nav-icon {
@@ -129,15 +334,21 @@
     .view { display: none; }
     .view.active { display: block; }
     .grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr); gap: 16px; align-items: start; }
+    .dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.9fr); gap: 16px; align-items: start; }
     .stack { display: grid; gap: 16px; min-width: 0; }
     .two-up { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
 
     .panel {
-      background: rgba(255, 255, 255, 0.88);
-      border: 1px solid rgba(211, 216, 226, 0.88);
+      background:
+        linear-gradient(180deg, var(--glass-highlight), transparent 68%),
+        var(--panel-bg);
+      border: 1px solid var(--panel-line);
       border-radius: 8px;
       box-shadow: var(--shadow-soft);
       min-width: 0;
+      backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+      -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.35);
+      background-clip: padding-box;
     }
     .panel-header {
       display: flex;
@@ -151,9 +362,136 @@
     .panel-body { padding: 16px 18px 18px; }
     .connection-panel {
       min-height: 324px;
-      background: linear-gradient(135deg, rgba(255, 255, 255, 0.96), rgba(255, 248, 251, 0.86));
+      background: linear-gradient(135deg, var(--panel-bg), var(--accent-soft));
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(calc(var(--glass-blur) + 4px)) saturate(1.35);
+      -webkit-backdrop-filter: blur(calc(var(--glass-blur) + 4px)) saturate(1.35);
+    }
+    .telemetry-hero {
+      position: relative;
+      overflow: hidden;
+      min-height: 344px;
+      color: var(--hero-text);
+      border-color: var(--hero-line);
+      background:
+        radial-gradient(circle at 18% 20%, var(--hero-glow-a), transparent 30%),
+        radial-gradient(circle at 86% 14%, var(--hero-glow-b), transparent 32%),
+        linear-gradient(135deg, var(--hero-bg-a) 0%, var(--hero-bg-b) 100%);
       box-shadow: var(--shadow);
     }
+    .telemetry-hero.is-stopped {
+      background:
+        radial-gradient(circle at 18% 20%, var(--hero-stopped-glow-a), transparent 30%),
+        radial-gradient(circle at 86% 14%, var(--hero-stopped-glow-b), transparent 32%),
+        linear-gradient(135deg, var(--hero-bg-a) 0%, var(--surface-soft) 100%);
+    }
+    .particle-canvas {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0.96;
+      pointer-events: none;
+    }
+    .hero-overlay {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(90deg, var(--hero-overlay-a) 0%, var(--hero-overlay-b) 48%, var(--hero-overlay-c) 100%),
+        linear-gradient(180deg, var(--hero-overlay-d), transparent 42%);
+    }
+    .hero-content {
+      position: relative;
+      z-index: 2;
+      min-height: 344px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(260px, 0.82fr);
+      gap: 24px;
+      padding: 24px;
+      align-items: stretch;
+    }
+    .hero-main { display: grid; align-content: space-between; gap: 24px; min-width: 0; }
+    .hero-kicker { color: var(--hero-muted); font-size: 12px; font-weight: 760; letter-spacing: 0.08em; text-transform: uppercase; }
+    .hero-status-line { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; }
+    .hero-title { margin: 0; font-size: 42px; line-height: 1.02; letter-spacing: 0; font-weight: 820; }
+    .hero-node { margin-top: 10px; color: var(--hero-muted); line-height: 1.45; max-width: 740px; overflow-wrap: anywhere; }
+    .hero-state-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 999px;
+      background: var(--red);
+      box-shadow: 0 0 0 8px rgba(198, 40, 61, 0.10);
+    }
+    .hero-state-dot.ok { background: #39d98a; box-shadow: 0 0 0 8px rgba(57, 217, 138, 0.12), 0 0 28px rgba(57, 217, 138, 0.24); }
+    .hero-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    .hero-actions .primary { min-width: 138px; }
+    .hero-actions .secondary { color: var(--secondary-text); background: var(--secondary-bg); border-color: var(--line); }
+    .hero-actions .danger { color: var(--red); background: var(--red-soft); border-color: var(--red-soft); }
+    .hero-meta-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-content: end; }
+    .hero-meta {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--hero-line);
+      border-radius: 8px;
+      background: var(--hero-glass);
+      backdrop-filter: blur(18px) saturate(1.32);
+      -webkit-backdrop-filter: blur(18px) saturate(1.32);
+    }
+    .hero-meta-label { color: var(--hero-muted); font-size: 12px; margin-bottom: 5px; }
+    .hero-meta-value { color: var(--hero-text); font-weight: 760; overflow-wrap: anywhere; }
+    .hero-side {
+      display: grid;
+      align-content: space-between;
+      gap: 14px;
+      padding: 16px;
+      border: 1px solid var(--hero-line);
+      border-radius: 8px;
+      background: var(--hero-glass);
+      backdrop-filter: blur(22px) saturate(1.36);
+      -webkit-backdrop-filter: blur(22px) saturate(1.36);
+    }
+    .telemetry-readout { display: grid; gap: 12px; }
+    .readout-row { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; }
+    .readout-label { color: var(--hero-muted); font-size: 12px; }
+    .readout-value { font-size: 22px; font-weight: 820; color: var(--text); font-variant-numeric: tabular-nums; }
+    .readout-value.down { color: var(--accent-2); }
+    .readout-value.up { color: var(--accent); }
+    .telemetry-metrics { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+    .telemetry-card {
+      min-width: 0;
+      padding: 14px;
+      border: 1px solid var(--panel-line);
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, var(--glass-highlight), transparent 70%),
+        var(--panel-bg);
+      box-shadow: var(--shadow-soft);
+      backdrop-filter: blur(18px) saturate(1.3);
+      -webkit-backdrop-filter: blur(18px) saturate(1.3);
+    }
+    .telemetry-label { color: var(--muted); font-size: 12px; font-weight: 720; }
+    .telemetry-value { margin-top: 8px; display: flex; align-items: baseline; gap: 6px; font-size: 26px; font-weight: 820; font-variant-numeric: tabular-nums; }
+    .telemetry-unit { color: var(--muted); font-size: 12px; font-weight: 720; }
+    .sparkline { width: 100%; height: 34px; margin-top: 10px; display: block; }
+    .chart-panel {
+      min-height: 306px;
+      background: var(--chart-bg);
+    }
+    .chart-panel.is-collapsed {
+      min-height: 0;
+    }
+    .chart-panel.is-collapsed .panel-body,
+    .chart-panel.is-collapsed .chart-legend {
+      display: none;
+    }
+    .chart-shell { position: relative; height: 238px; }
+    .chart-canvas { width: 100%; height: 100%; display: block; }
+    .chart-legend { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; color: var(--muted); font-size: 12px; }
+    .legend-dot { width: 9px; height: 9px; border-radius: 999px; display: inline-block; margin-right: 6px; }
+    .legend-dot.down { background: var(--accent-2); }
+    .legend-dot.up { background: var(--pink); }
+    .legend-dot.latency { background: #12a778; }
     .connection-layout { display: grid; grid-template-columns: 132px minmax(0, 1fr); gap: 18px; align-items: center; }
 
     .state-orbit {
@@ -162,7 +500,7 @@
       border-radius: 999px;
       display: grid;
       place-items: center;
-      background: conic-gradient(from 220deg, rgba(232, 63, 131, 0.40), rgba(35, 104, 232, 0.12), rgba(232, 63, 131, 0.40));
+      background: conic-gradient(from 220deg, rgba(var(--accent-rgb), 0.40), rgba(var(--accent-2-rgb), 0.12), rgba(var(--accent-rgb), 0.40));
       position: relative;
     }
     .state-orbit::before {
@@ -181,7 +519,7 @@
       border-radius: inherit;
       border: 3px solid transparent;
       border-top-color: var(--pink);
-      border-right-color: rgba(35, 104, 232, 0.42);
+      border-right-color: rgba(var(--accent-2-rgb), 0.42);
       opacity: 0;
       z-index: 0;
     }
@@ -198,7 +536,7 @@
       background: linear-gradient(145deg, #a7adb8, #747b89);
       box-shadow: inset 0 1px 0 rgba(255,255,255,0.45);
     }
-    .state-orbit.is-running .state-core { background: linear-gradient(145deg, #ff70aa, #df2f7d); }
+    .state-orbit.is-running .state-core { background: linear-gradient(145deg, var(--brand-start), var(--brand-end)); }
     @keyframes spin { to { transform: rotate(360deg); } }
 
     .state-headline { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
@@ -210,7 +548,15 @@
     .status-dot.bad { background: var(--red); }
 
     .metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 16px; }
-    .metric { min-width: 0; padding: 11px 12px; border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,0.76); }
+    .metric {
+      min-width: 0;
+      padding: 11px 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--card-bg);
+      backdrop-filter: blur(16px) saturate(1.25);
+      -webkit-backdrop-filter: blur(16px) saturate(1.25);
+    }
     .metric-label { color: var(--muted); font-size: 12px; margin-bottom: 4px; }
     .metric-value { font-weight: 740; overflow-wrap: anywhere; }
 
@@ -229,16 +575,23 @@
       cursor: pointer;
       color: #fff;
       background: var(--blue);
-      box-shadow: 0 8px 18px rgba(35, 104, 232, 0.18);
+      box-shadow: 0 8px 18px var(--button-shadow);
       transition: transform 140ms ease, box-shadow 140ms ease, background 140ms ease, opacity 140ms ease;
       white-space: nowrap;
     }
     button:hover { transform: translateY(-1px); }
     button:active { transform: translateY(0); }
     button:disabled { cursor: default; opacity: 0.58; transform: none; box-shadow: none; }
-    button.primary { min-width: 166px; background: linear-gradient(135deg, #f04c91, #d92c78); box-shadow: 0 12px 26px rgba(232, 63, 131, 0.28); }
-    button.secondary { background: #f1f3f7; color: #222631; box-shadow: none; border: 1px solid var(--line); }
-    button.danger { background: #fff0f2; color: var(--red); border: 1px solid #ffd0d7; box-shadow: none; }
+    button.primary { min-width: 166px; background: linear-gradient(135deg, var(--primary-start), var(--primary-end)); box-shadow: 0 12px 26px var(--brand-shadow); }
+    button.secondary {
+      background: var(--secondary-bg);
+      color: var(--secondary-text);
+      box-shadow: none;
+      border: 1px solid var(--line);
+      backdrop-filter: blur(14px) saturate(1.24);
+      -webkit-backdrop-filter: blur(14px) saturate(1.24);
+    }
+    button.danger { background: var(--red-soft); color: var(--red); border: 1px solid var(--red-soft); box-shadow: none; }
     button.ghost { background: transparent; color: var(--muted); border: 1px solid transparent; box-shadow: none; }
     .icon { width: 15px; height: 15px; display: inline-block; position: relative; flex: 0 0 auto; }
     .icon.play::before { content: ""; position: absolute; inset: 2px 1px 2px 4px; background: currentColor; clip-path: polygon(0 0, 100% 50%, 0 100%); }
@@ -256,8 +609,10 @@
       font-size: 12px;
       font-weight: 740;
       color: var(--muted);
-      background: #f0f2f6;
+      background: var(--glass-bg);
       white-space: nowrap;
+      backdrop-filter: blur(14px) saturate(1.22);
+      -webkit-backdrop-filter: blur(14px) saturate(1.22);
     }
     .chip.ok { color: var(--green); background: var(--green-soft); }
     .chip.warn { color: var(--amber); background: var(--amber-soft); }
@@ -271,19 +626,40 @@
       border: 1px solid var(--line-strong);
       border-radius: 8px;
       padding: 0 12px;
-      background: #fff;
+      background: var(--input-bg);
       color: var(--text);
       font: inherit;
       font-size: 13px;
       outline: none;
       transition: border-color 140ms ease, box-shadow 140ms ease;
+      backdrop-filter: blur(14px) saturate(1.2);
+      -webkit-backdrop-filter: blur(14px) saturate(1.2);
     }
     textarea { padding: 10px 12px; resize: vertical; min-height: 92px; }
-    input:focus, select:focus, textarea:focus { border-color: rgba(232, 63, 131, 0.62); box-shadow: 0 0 0 3px rgba(232, 63, 131, 0.12); }
+    input[type="color"] {
+      padding: 4px;
+      cursor: pointer;
+    }
+    input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+    input[type="color"]::-webkit-color-swatch {
+      border: 0;
+      border-radius: 6px;
+    }
+    input:focus, select:focus, textarea:focus { border-color: rgba(var(--accent-rgb), 0.62); box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.12); }
 
-    .segmented { display: inline-grid; grid-template-columns: repeat(3, minmax(80px, 1fr)); padding: 3px; border: 1px solid var(--line); border-radius: 8px; background: #f2f4f8; gap: 3px; }
+    .segmented {
+      display: inline-grid;
+      grid-template-columns: repeat(3, minmax(80px, 1fr));
+      padding: 3px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--glass-bg);
+      gap: 3px;
+      backdrop-filter: blur(16px) saturate(1.2);
+      -webkit-backdrop-filter: blur(16px) saturate(1.2);
+    }
     .segmented button { min-height: 32px; background: transparent; color: var(--muted); border: 0; box-shadow: none; padding: 0 10px; }
-    .segmented button.active { background: #fff; color: var(--pink-strong); box-shadow: 0 3px 12px rgba(35, 43, 65, 0.08); }
+    .segmented button.active { background: var(--glass-bg-strong); color: var(--pink-strong); box-shadow: 0 3px 12px rgba(35, 43, 65, 0.08); }
 
     .node-tools { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 0.8fr) auto auto; gap: 10px; align-items: center; }
     .profile-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto auto; gap: 10px; align-items: center; }
@@ -295,21 +671,32 @@
       padding: 12px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: rgba(255,255,255,0.82);
+      background: var(--card-bg);
       min-width: 0;
+      backdrop-filter: blur(16px) saturate(1.24);
+      -webkit-backdrop-filter: blur(16px) saturate(1.24);
     }
     .node-row { grid-template-columns: 46px minmax(0, 1fr) auto auto; }
     .profile-row { grid-template-columns: minmax(0, 1fr) auto; }
     .proxy-row { grid-template-columns: minmax(110px, 0.8fr) minmax(0, 1fr) auto; }
     .conflict-row { grid-template-columns: minmax(0, 1fr) auto; }
     .event-row { align-items: start; }
-    .node-row.selected, .profile-row.selected { border-color: rgba(232, 63, 131, 0.42); background: var(--pink-soft); }
+    .node-row.selected, .profile-row.selected { border-color: rgba(var(--accent-rgb), 0.42); background: var(--pink-soft); }
     .row-index { color: var(--muted); font-weight: 760; }
     .row-title { font-weight: 760; overflow-wrap: anywhere; }
     .row-subtitle { margin-top: 3px; color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
     .row-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
     .row-actions button { min-height: 32px; padding: 0 10px; }
-    .empty { padding: 22px; color: var(--muted); text-align: center; border: 1px dashed var(--line-strong); border-radius: 8px; background: rgba(255,255,255,0.58); }
+    .empty {
+      padding: 22px;
+      color: var(--muted);
+      text-align: center;
+      border: 1px dashed var(--line-strong);
+      border-radius: 8px;
+      background: var(--card-bg-soft);
+      backdrop-filter: blur(14px) saturate(1.18);
+      -webkit-backdrop-filter: blur(14px) saturate(1.18);
+    }
 
     .delay { min-width: 76px; justify-content: center; }
     .delay.good { color: var(--green); background: var(--green-soft); }
@@ -321,7 +708,9 @@
       border: 1px solid var(--line);
       border-radius: 8px;
       padding: 14px;
-      background: rgba(255,255,255,0.78);
+      background: var(--card-bg);
+      backdrop-filter: blur(16px) saturate(1.22);
+      -webkit-backdrop-filter: blur(16px) saturate(1.22);
     }
     .summary-card.ok { border-color: rgba(20, 128, 74, 0.24); background: var(--green-soft); }
     .summary-card.warn { border-color: rgba(165, 98, 0, 0.24); background: var(--amber-soft); }
@@ -339,10 +728,12 @@
       padding: 12px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: linear-gradient(180deg, #fbfcfe, #f7f8fb);
-      color: #383d49;
+      background: var(--output-bg);
+      color: var(--text);
       line-height: 1.5;
       overflow-wrap: anywhere;
+      backdrop-filter: blur(14px) saturate(1.18);
+      -webkit-backdrop-filter: blur(14px) saturate(1.18);
     }
     .footer-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 12px 18px 16px; border-top: 1px solid var(--line); }
 
@@ -357,23 +748,28 @@
       place-items: center;
       padding: 20px;
       background: rgba(15, 18, 26, 0.38);
-      backdrop-filter: blur(8px);
+      backdrop-filter: blur(10px) saturate(1.12);
+      -webkit-backdrop-filter: blur(10px) saturate(1.12);
     }
     .modal-backdrop.open { display: grid; }
     .modal {
       width: min(560px, 100%);
-      border: 1px solid rgba(211, 216, 226, 0.92);
+      border: 1px solid var(--panel-line);
       border-radius: 8px;
-      background: var(--surface);
+      background:
+        linear-gradient(180deg, var(--glass-highlight), transparent 60%),
+        var(--glass-bg-strong);
       box-shadow: 0 24px 70px rgba(18, 24, 38, 0.24);
       overflow: hidden;
+      backdrop-filter: blur(26px) saturate(1.42);
+      -webkit-backdrop-filter: blur(26px) saturate(1.42);
     }
     .modal-header { padding: 18px 18px 0; }
     .modal-title { margin: 0; font-size: 18px; font-weight: 800; }
     .modal-copy { margin: 7px 0 0; color: var(--muted); line-height: 1.45; }
     .modal-body { display: grid; gap: 12px; padding: 16px 18px; }
     .modal-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 0 18px 18px; }
-    .url-box { padding: 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-soft); overflow-wrap: anywhere; user-select: text; }
+    .url-box { padding: 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--glass-bg); overflow-wrap: anywhere; user-select: text; backdrop-filter: blur(14px) saturate(1.16); -webkit-backdrop-filter: blur(14px) saturate(1.16); }
 
     @media (max-width: 1080px) {
       .app-shell { grid-template-columns: 1fr; }
@@ -382,8 +778,10 @@
       .nav { display: flex; min-width: max-content; }
       .nav-item { width: auto; }
       .sidebar-footer { display: none; }
-      .grid { grid-template-columns: 1fr; }
+      .grid, .dashboard-grid { grid-template-columns: 1fr; }
       .main { padding-right: 28px; }
+      .hero-content { grid-template-columns: 1fr; }
+      .telemetry-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     }
     @media (max-width: 760px) {
       .main { padding: 18px 14px 24px; }
@@ -397,33 +795,13 @@
       .connection-layout { grid-template-columns: 1fr; }
       .state-orbit { width: 98px; height: 98px; }
       .state-headline h2 { font-size: 24px; }
-      .metrics, .two-up, .node-tools, .profile-tools, .node-row, .proxy-row, .conflict-row { grid-template-columns: 1fr; }
+      .metrics, .two-up, .node-tools, .profile-tools, .node-row, .proxy-row, .conflict-row, .telemetry-metrics, .hero-content, .hero-meta-grid { grid-template-columns: 1fr; }
+      .telemetry-hero, .hero-content { min-height: 0; }
+      .hero-content { padding: 18px; }
+      .hero-title { font-size: 31px; }
       .node-row, .profile-row { align-items: start; }
       .row-actions, .proxy-status { justify-content: flex-start; justify-self: start; }
       .segmented { width: 100%; }
-    }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        color-scheme: dark;
-        --bg: #11131a;
-        --surface: #1d212b;
-        --surface-soft: #202531;
-        --text: #f3f5fa;
-        --muted: #a5adbd;
-        --subtle: #778093;
-        --line: #303645;
-        --line-strong: #3a4152;
-        --shadow: 0 18px 50px rgba(0,0,0,0.28);
-        --shadow-soft: 0 8px 24px rgba(0,0,0,0.18);
-      }
-      body { background: #11131a; }
-      .sidebar, .panel, .modal { background: rgba(29, 33, 43, 0.92); }
-      .connection-panel { background: linear-gradient(135deg, rgba(29,33,43,0.98), rgba(38,27,42,0.86)); }
-      .metric, .node-row, .profile-row, .proxy-row, .conflict-row, .event-row, input, select, textarea, .summary-card { background: var(--surface); }
-      button.secondary { background: #252b37; color: var(--text); }
-      .segmented { background: #171b24; }
-      .segmented button.active { background: #262c38; }
-      .output-box { background: #171b24; color: #e4e7ef; }
     }
   </style>
 </head>
@@ -434,7 +812,7 @@
         <div class="brand-mark" aria-hidden="true">♥</div>
         <div>
           <h1 class="brand-title">SophiaVPN</h1>
-          <p class="brand-subtitle">macOS 代理控制台</p>
+          <p class="brand-subtitle">macOS 代理控制台 / macOS Proxy Console</p>
         </div>
       </div>
       <nav class="nav" aria-label="SophiaVPN sections">
@@ -442,9 +820,10 @@
         <button class="nav-item" type="button" data-view="nodes"><span class="nav-icon"></span>节点 / Nodes</button>
         <button class="nav-item" type="button" data-view="profiles"><span class="nav-icon"></span>订阅 / Profiles</button>
         <button class="nav-item" type="button" data-view="logs"><span class="nav-icon"></span>日志 / Logs</button>
+        <button class="nav-item" type="button" data-view="settings"><span class="nav-icon"></span>设置 / Settings</button>
       </nav>
       <div class="sidebar-footer">
-        <div class="health-line"><span class="status-dot ok"></span>本地配置已就绪</div>
+        <div class="health-line"><span class="status-dot ok"></span>本地配置已就绪 / Local config ready</div>
         <div>v0.1.0 · Proxy-only mode</div>
       </div>
     </aside>
@@ -453,43 +832,119 @@
       <div class="topbar">
         <div>
           <h2 id="pageTitle" class="page-title">仪表盘 / Dashboard</h2>
-          <p id="pageSubtitle" class="page-subtitle">启动会同时接管系统代理和终端代理；如果被其他软件占用，SophiaVPN 会直接失败并告诉你原因。</p>
+          <p id="pageSubtitle" class="page-subtitle">启动会同时接管系统代理和终端代理；如果被其他软件占用，SophiaVPN 会直接失败并告诉你原因。 / Start takes over both system and terminal proxy. If another app owns them, SophiaVPN fails clearly instead of overriding it.</p>
         </div>
         <div class="toolbar">
           <span id="busy" class="chip pink">处理中 / Working</span>
+          <button id="languageToggle" class="secondary" type="button" onclick="toggleLanguage()">English</button>
           <button class="secondary" type="button" onclick="refresh()"><span class="icon refresh"></span>刷新 / Refresh</button>
         </div>
       </div>
 
       <section id="view-dashboard" class="view active">
-        <div class="grid">
-          <div class="stack">
-            <section class="panel connection-panel">
-              <div class="panel-body">
-                <div class="connection-layout">
-                  <div id="stateOrbit" class="state-orbit" aria-hidden="true"><div class="state-core"></div></div>
-                  <div>
-                    <div class="state-headline">
-                      <h2 id="runtimeHeadline">未运行 / Stopped</h2>
-                      <span id="runtimeDot" class="status-dot bad"></span>
-                      <span id="runtimeChip" class="chip bad">未运行 / Stopped</span>
-                    </div>
-                    <p id="runtimeCopy" class="state-copy">SophiaVPN 当前未接管代理。点击“启动”后会完整接管系统代理和终端代理。</p>
-                    <div class="metrics" id="statusBox"></div>
-                    <div class="actions">
-                      <button class="primary" type="button" onclick="runAction('on')"><span class="icon play"></span>启动 / Start</button>
-                      <button class="danger" type="button" onclick="runAction('off')"><span class="icon square"></span>关闭 / Stop</button>
-                      <button class="secondary" type="button" onclick="runAction('test')">连通性测试 / Test</button>
-                    </div>
+        <div class="stack">
+          <section id="telemetryHero" class="panel telemetry-hero is-stopped">
+            <canvas id="particleCanvas" class="particle-canvas"></canvas>
+            <div class="hero-overlay"></div>
+            <div class="hero-content">
+              <div class="hero-main">
+                <div>
+                  <div class="hero-kicker">SophiaVPN Network Control</div>
+                  <div class="hero-status-line">
+                    <span id="heroStateDot" class="hero-state-dot"></span>
+                    <h3 id="heroRuntime" class="hero-title">已停止 / Stopped</h3>
+                    <span id="heroRuntimeChip" class="chip bad">未运行 / Stopped</span>
+                  </div>
+                  <div id="heroNode" class="hero-node">当前没有接管系统代理。点击启动后进入实时网络状态中心。 / SophiaVPN is not managing the system proxy. Start to enter the live network center.</div>
+                </div>
+                <div class="hero-actions" id="heroActions"></div>
+              </div>
+              <div class="hero-side">
+                <div class="telemetry-readout">
+                  <div class="readout-row">
+                    <span class="readout-label">Download</span>
+                    <span id="heroDownload" class="readout-value down">0 B/s</span>
+                  </div>
+                  <div class="readout-row">
+                    <span class="readout-label">Upload</span>
+                    <span id="heroUpload" class="readout-value up">0 B/s</span>
                   </div>
                 </div>
+                <div class="hero-meta-grid">
+                  <div class="hero-meta">
+                    <div class="hero-meta-label">模式 / Mode</div>
+                    <div id="heroMode" class="hero-meta-value">-</div>
+                  </div>
+                  <div class="hero-meta">
+                    <div class="hero-meta-label">核心 / Core</div>
+                    <div id="heroCore" class="hero-meta-value">-</div>
+                  </div>
+                  <div class="hero-meta">
+                    <div class="hero-meta-label">系统代理 / System</div>
+                    <div id="heroSystemProxy" class="hero-meta-value">-</div>
+                  </div>
+                  <div class="hero-meta">
+                    <div class="hero-meta-label">终端代理 / Terminal</div>
+                    <div id="heroTerminalProxy" class="hero-meta-value">-</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="telemetry-metrics">
+            <div class="telemetry-card">
+              <div class="telemetry-label">下载 / Download</div>
+              <div class="telemetry-value"><span id="metricDownload">0</span><span id="metricDownloadUnit" class="telemetry-unit">B/s</span></div>
+              <canvas id="sparkDownload" class="sparkline"></canvas>
+            </div>
+            <div class="telemetry-card">
+              <div class="telemetry-label">上传 / Upload</div>
+              <div class="telemetry-value"><span id="metricUpload">0</span><span id="metricUploadUnit" class="telemetry-unit">B/s</span></div>
+              <canvas id="sparkUpload" class="sparkline"></canvas>
+            </div>
+            <div class="telemetry-card">
+              <div class="telemetry-label">延迟 / Latency</div>
+              <div class="telemetry-value"><span id="metricLatency">-</span><span class="telemetry-unit">ms</span></div>
+              <canvas id="sparkLatency" class="sparkline"></canvas>
+            </div>
+            <div class="telemetry-card">
+              <div class="telemetry-label">丢包率 / Packet Loss</div>
+              <div class="telemetry-value"><span id="metricPacketLoss">未检测</span><span id="metricPacketLossUnit" class="telemetry-unit"></span></div>
+              <canvas id="sparkPacketLoss" class="sparkline"></canvas>
+            </div>
+            <div class="telemetry-card">
+              <div class="telemetry-label">今日流量 / Today</div>
+              <div class="telemetry-value"><span id="metricUsage">0</span><span id="metricUsageUnit" class="telemetry-unit">B</span></div>
+              <canvas id="sparkUsage" class="sparkline"></canvas>
+            </div>
+          </section>
+
+          <div class="dashboard-grid">
+          <div class="stack">
+            <section id="bandwidthPanel" class="panel chart-panel is-collapsed">
+              <div class="panel-header">
+                <div>
+                  <h3 class="panel-title">实时带宽 / Realtime Bandwidth</h3>
+                  <p class="panel-subtitle">最近 60 秒下载与上传速率，后续可扩展到 5 分钟窗口。 / Download and upload speed over the last 60 seconds, ready for a 5-minute window later.</p>
+                </div>
+                <div class="actions">
+                  <div class="chart-legend">
+                    <span><i class="legend-dot down"></i>Download</span>
+                    <span><i class="legend-dot up"></i>Upload</span>
+                  </div>
+                  <button id="bandwidthToggle" class="secondary" type="button" onclick="toggleChart('bandwidth')">展开 / Open</button>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="chart-shell"><canvas id="bandwidthChart" class="chart-canvas"></canvas></div>
               </div>
             </section>
             <section class="panel">
               <div class="panel-header">
                 <div>
                   <h3 class="panel-title">代理占用 / Proxy Ownership</h3>
-                  <p class="panel-subtitle">清楚显示系统代理和终端代理现在指向谁。</p>
+                  <p class="panel-subtitle">清楚显示系统代理和终端代理现在指向谁。 / Shows exactly who currently owns the system and terminal proxy.</p>
                 </div>
                 <button class="secondary" type="button" onclick="runAction('system-proxy-status')">检查 / Check</button>
               </div>
@@ -499,11 +954,26 @@
             </section>
           </div>
           <div class="stack">
+            <section id="latencyPanel" class="panel chart-panel is-collapsed">
+              <div class="panel-header">
+                <div>
+                  <h3 class="panel-title">延迟趋势 / Latency Trend</h3>
+                  <p class="panel-subtitle">当前版本带宽来自真实数据，延迟/丢包通过可替换适配层补齐。 / Bandwidth uses live data; latency and packet loss are ready for a replaceable adapter.</p>
+                </div>
+                <div class="actions">
+                  <div class="chart-legend"><span><i class="legend-dot latency"></i>Latency</span></div>
+                  <button id="latencyToggle" class="secondary" type="button" onclick="toggleChart('latency')">展开 / Open</button>
+                </div>
+              </div>
+              <div class="panel-body">
+                <div class="chart-shell"><canvas id="latencyChart" class="chart-canvas"></canvas></div>
+              </div>
+            </section>
             <section class="panel">
               <div class="panel-header">
                 <div>
                   <h3 class="panel-title">当前节点 / Current Node</h3>
-                  <p class="panel-subtitle">节点和模式可以在“节点”页面完整管理。</p>
+                  <p class="panel-subtitle">节点和模式可以在“节点”页面完整管理。 / Manage nodes and mode from the Nodes page.</p>
                 </div>
                 <button class="secondary" type="button" onclick="showView('nodes')">管理节点 / Nodes</button>
               </div>
@@ -514,8 +984,20 @@
             <section class="panel">
               <div class="panel-header">
                 <div>
+                  <h3 class="panel-title">流量统计 / Usage</h3>
+                  <p class="panel-subtitle">按订阅方案和节点记录本机 SophiaVPN 使用期间的流量。 / Tracks local SophiaVPN usage by profile and node.</p>
+                </div>
+                <button class="secondary" type="button" onclick="openUsageModal()">详情 / Details</button>
+              </div>
+              <div class="panel-body">
+                <div id="usageSummary" class="summary-card"></div>
+              </div>
+            </section>
+            <section class="panel">
+              <div class="panel-header">
+                <div>
                   <h3 class="panel-title">冲突检查 / Conflict Check</h3>
-                  <p class="panel-subtitle">判断是否有其他 VPN 或代理客户端可能抢占代理。</p>
+                  <p class="panel-subtitle">判断是否有其他 VPN 或代理客户端可能抢占代理。 / Checks whether another VPN or proxy client may take ownership.</p>
                 </div>
                 <button class="secondary" type="button" onclick="runAction('conflicts')">重新检查 / Recheck</button>
               </div>
@@ -527,7 +1009,7 @@
               <div class="panel-header">
                 <div>
                   <h3 class="panel-title">最近输出 / Latest Output</h3>
-                  <p class="panel-subtitle">详细操作记录在“日志”页面。</p>
+                  <p class="panel-subtitle">详细操作记录在“日志”页面。 / Detailed operation output is available on the Logs page.</p>
                 </div>
                 <button class="secondary" type="button" onclick="showView('logs')">查看日志 / Logs</button>
               </div>
@@ -535,6 +1017,7 @@
                 <div id="dashboardOutput" class="output-box">Ready.</div>
               </div>
             </section>
+          </div>
           </div>
         </div>
       </section>
@@ -545,7 +1028,7 @@
             <div class="panel-header">
               <div>
                 <h3 class="panel-title">节点与模式 / Nodes and Mode</h3>
-                <p class="panel-subtitle">滚动查看全部节点；延迟测试后，每个节点右侧都会显示结果。</p>
+                <p class="panel-subtitle">滚动查看全部节点；延迟测试后，每个节点右侧都会显示结果。 / Scroll through all nodes. Delay results appear beside each node after testing.</p>
               </div>
               <button class="secondary" type="button" onclick="runAction('nodes-delay')">延迟测试 / Delay</button>
             </div>
@@ -572,7 +1055,7 @@
             <div class="panel-header">
               <div>
                 <h3 class="panel-title">订阅 / Profiles</h3>
-                <p class="panel-subtitle">下拉选择方案；重命名、删除和查看地址都会先弹窗确认。</p>
+                <p class="panel-subtitle">下拉选择方案；重命名、删除和查看地址都会先弹窗确认。 / Select profiles from the dropdown; rename, delete, and URL views open in confirmation dialogs.</p>
               </div>
               <button type="button" onclick="openImportModal()">导入订阅 / Import</button>
             </div>
@@ -596,7 +1079,7 @@
             <div class="panel-header">
               <div>
                 <h3 class="panel-title">操作输出 / Operation Output</h3>
-                <p class="panel-subtitle">这里显示人能读懂的结果；完整日志仍保存在本地目录。</p>
+                <p class="panel-subtitle">这里显示人能读懂的结果；完整日志仍保存在本地目录。 / This shows readable results; full logs stay in the local log directory.</p>
               </div>
             </div>
             <div class="panel-body">
@@ -614,12 +1097,82 @@
             <div class="panel-header">
               <div>
                 <h3 class="panel-title">冲突详情 / Conflict Details</h3>
-                <p class="panel-subtitle">如果显示黄色，说明发现相关进程；真正启动时若被占用会失败，不会强行覆盖。</p>
+                <p class="panel-subtitle">如果显示黄色，说明发现相关进程；真正启动时若被占用会失败，不会强行覆盖。 / Yellow means related processes were found; startup will fail clearly if ownership is blocked.</p>
               </div>
               <button class="secondary" type="button" onclick="runAction('conflicts')">重新检查 / Recheck</button>
             </div>
             <div class="panel-body">
               <div id="conflictDetails" class="event-list"></div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section id="view-settings" class="view">
+        <div class="stack">
+          <section class="panel">
+            <div class="panel-header">
+              <div>
+                <h3 class="panel-title">显示设置 / Display Settings</h3>
+                <p class="panel-subtitle">语言、浅色/深色外观、主题和界面图标会保存在本机，下次打开自动恢复。 / Language, light/dark appearance, theme, and interface icon are saved locally and restored next time.</p>
+              </div>
+            </div>
+            <div class="panel-body stack">
+              <div class="two-up">
+                <label>
+                  <div class="row-subtitle">语言 / Language</div>
+                  <select id="languageSelect" onchange="setLanguage(this.value)">
+                    <option value="zh">中文</option>
+                    <option value="en">English</option>
+                  </select>
+                </label>
+                <label>
+                  <div class="row-subtitle">外观 / Appearance</div>
+                  <select id="appearanceSelect" onchange="setAppearance(this.value)">
+                    <option value="system">跟随系统 / System</option>
+                    <option value="light">浅色 / Light</option>
+                    <option value="dark">深色 / Dark</option>
+                  </select>
+                </label>
+                <label>
+                  <div class="row-subtitle">主题 / Theme</div>
+                  <select id="themeSelect" onchange="setTheme(this.value)">
+                    <option value="rose">粉红 / Rose</option>
+                    <option value="ocean">海蓝 / Ocean</option>
+                    <option value="mint">薄荷 / Mint</option>
+                    <option value="graphite">石墨 / Graphite</option>
+                    <option value="violet">紫晶 / Violet</option>
+                    <option value="sky">天蓝 / Sky</option>
+                    <option value="amber">琥珀 / Amber</option>
+                    <option value="sunset">日落 / Sunset</option>
+                    <option value="custom">自定义 / Custom</option>
+                  </select>
+                </label>
+                <label>
+                  <div class="row-subtitle">自定义颜色 / Custom Color</div>
+                  <input id="customThemeColor" type="color" value="#e83f83" oninput="setCustomThemeColor(this.value)" />
+                </label>
+              </div>
+              <div class="two-up">
+                <label>
+                  <div class="row-subtitle">界面图标 / Interface Icon</div>
+                  <select id="iconSelect" onchange="setIcon(this.value)">
+                    <option value="♥">爱心 / Heart</option>
+                    <option value="◆">宝石 / Gem</option>
+                    <option value="●">圆点 / Dot</option>
+                    <option value="✦">星光 / Spark</option>
+                    <option value="S">字母 / Letter</option>
+                  </select>
+                </label>
+                <label>
+                  <div class="row-subtitle">自定义界面图标 / Custom Interface Icon</div>
+                  <input id="customIcon" maxlength="2" placeholder="输入 1-2 个字符 / Enter 1-2 characters" oninput="setIcon(this.value || '♥')" />
+                </label>
+              </div>
+              <div class="summary-card">
+                <div class="summary-title">说明 / Note</div>
+                <div class="summary-copy">这里更换的是 SophiaVPN 界面和状态栏菜单使用的品牌样式。macOS Dock 图标属于应用包资源，若要做成可选图标，需要后续加入打包与签名流程。 / This changes the brand style used inside SophiaVPN and its status menu. The macOS Dock icon belongs to the signed app bundle and needs packaging support for selectable variants.</div>
+              </div>
             </div>
           </section>
         </div>
@@ -641,14 +1194,48 @@
   <script>
     const api = window.sophiaVPN || window.silverVPN || null;
     const pageMeta = {
-      dashboard: ['仪表盘 / Dashboard', '启动会同时接管系统代理和终端代理；如果被其他软件占用，SophiaVPN 会直接失败并告诉你原因。'],
-      nodes: ['节点 / Nodes', '滚动或下拉选择节点，延迟会显示在每个节点右侧。'],
-      profiles: ['订阅 / Profiles', '通过下拉菜单管理订阅；导入、重命名、删除和查看地址都在弹窗中完成。'],
-      logs: ['日志 / Logs', '查看操作输出、打开本地日志目录，危险操作会先确认。']
+      dashboard: ['仪表盘 / Dashboard', '启动会同时接管系统代理和终端代理；如果被其他软件占用，SophiaVPN 会直接失败并告诉你原因。 / Start takes over both system and terminal proxy. If another app owns them, SophiaVPN fails clearly instead of overriding it.'],
+      nodes: ['节点 / Nodes', '滚动或下拉选择节点，延迟会显示在每个节点右侧。 / Scroll or use the dropdown to choose nodes. Delay appears on the right side of each node.'],
+      profiles: ['订阅 / Profiles', '通过下拉菜单管理订阅；导入、重命名、删除和查看地址都在弹窗中完成。 / Manage profiles from the dropdown. Import, rename, delete, and URL details open in dialogs.'],
+      logs: ['日志 / Logs', '查看操作输出、打开本地日志目录，危险操作会先确认。 / Review operation output and open local logs. Risky actions require confirmation.'],
+      settings: ['设置 / Settings', '切换语言、浅色/深色外观、主题和 SophiaVPN 界面图标。 / Change language, light/dark appearance, theme, and the SophiaVPN interface icon.']
     };
     let lastDashboard = {};
     let currentView = 'dashboard';
     let activeModal = null;
+    let busyCount = 0;
+    let telemetryTimer = null;
+    let animationFrame = null;
+    let particleState = null;
+    const chartState = {
+      bandwidth: false,
+      latency: false
+    };
+    const themeAccentMap = {
+      rose: '#e83f83',
+      ocean: '#1f8bb8',
+      mint: '#12a778',
+      graphite: '#5f6878',
+      violet: '#7c5cff',
+      sky: '#2f9eea',
+      amber: '#c98500',
+      sunset: '#e4663b'
+    };
+    const availableThemes = [...Object.keys(themeAccentMap), 'custom'];
+    const telemetryState = {
+      maxSamples: 60,
+      samples: [],
+      latest: { download: 0, upload: 0, latency: null, packetLoss: null, usage: null, source: 'mock' },
+      mockPhase: Math.random() * 100
+    };
+    const appPrefs = {
+      language: localStorage.getItem('sophia.language') || 'zh',
+      appearance: localStorage.getItem('sophia.appearance') || 'system',
+      theme: localStorage.getItem('sophia.theme') || 'rose',
+      icon: localStorage.getItem('sophia.icon') || '♥',
+      customThemeColor: localStorage.getItem('sophia.customThemeColor') || '#e83f83'
+    };
+    const systemDarkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
 
     function $(id) { return document.getElementById(id); }
     function escapeHtml(value) {
@@ -659,9 +1246,350 @@
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
     }
+    function tr(zh, en) {
+      return appPrefs.language === 'en' ? en : zh;
+    }
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+    function hexToRgb(hex) {
+      const clean = String(hex || '').replace('#', '').trim();
+      const normalized = clean.length === 3
+        ? clean.split('').map(char => char + char).join('')
+        : clean.padEnd(6, '0').slice(0, 6);
+      const intValue = Number.parseInt(normalized, 16);
+      if (!Number.isFinite(intValue)) return { r: 232, g: 63, b: 131 };
+      return {
+        r: (intValue >> 16) & 255,
+        g: (intValue >> 8) & 255,
+        b: intValue & 255
+      };
+    }
+    function rgbToHex({ r, g, b }) {
+      return `#${[r, g, b].map(value => clamp(Math.round(value), 0, 255).toString(16).padStart(2, '0')).join('')}`;
+    }
+    function mixRgb(a, b, amount) {
+      return {
+        r: a.r + (b.r - a.r) * amount,
+        g: a.g + (b.g - a.g) * amount,
+        b: a.b + (b.b - a.b) * amount
+      };
+    }
+    function rgbString(color) {
+      return `${Math.round(color.r)}, ${Math.round(color.g)}, ${Math.round(color.b)}`;
+    }
+    function rgba(color, alpha) {
+      return `rgba(${rgbString(color)}, ${alpha})`;
+    }
+    function resolveAppearance() {
+      if (appPrefs.appearance === 'dark' || appPrefs.appearance === 'light') return appPrefs.appearance;
+      return systemDarkQuery && systemDarkQuery.matches ? 'dark' : 'light';
+    }
+    function buildThemePalette(accentHex, appearance = 'light') {
+      const accent = hexToRgb(accentHex);
+      if (appearance === 'dark') return buildDarkThemePalette(accent);
+      return buildLightThemePalette(accent);
+    }
+    function buildLightThemePalette(accent) {
+      const white = { r: 255, g: 255, b: 255 };
+      const nearWhite = mixRgb(accent, white, 0.94);
+      const page = mixRgb(accent, white, 0.90);
+      const soft = mixRgb(accent, white, 0.86);
+      const strong = mixRgb(accent, { r: 16, g: 22, b: 32 }, 0.28);
+      const accent2 = mixRgb({ r: 36, g: 110, b: 232 }, accent, 0.18);
+      return {
+        '--bg': rgbToHex(page),
+        '--text': '#17181d',
+        '--muted': '#6c7280',
+        '--subtle': '#969daa',
+        '--line': '#dee2ea',
+        '--line-strong': '#cbd1dc',
+        '--page-bg-start': rgbToHex(nearWhite),
+        '--page-bg-end': rgbToHex(soft),
+        '--body-glow-a': rgba(accent, 0.16),
+        '--body-glow-b': rgba(accent2, 0.10),
+        '--surface': rgbToHex(nearWhite),
+        '--surface-soft': rgbToHex(mixRgb(accent, white, 0.88)),
+        '--sidebar-bg': rgba(nearWhite, 0.80),
+        '--sidebar-line': rgba(mixRgb(accent, white, 0.42), 0.86),
+        '--panel-bg': rgba(nearWhite, 0.90),
+        '--panel-line': rgba(mixRgb(accent, white, 0.44), 0.86),
+        '--card-bg': rgba(nearWhite, 0.86),
+        '--card-bg-soft': rgba(mixRgb(accent, white, 0.88), 0.70),
+        '--glass-bg': rgba(nearWhite, 0.62),
+        '--glass-bg-strong': rgba(nearWhite, 0.78),
+        '--input-bg': rgba(nearWhite, 0.68),
+        '--secondary-bg': rgba(mixRgb(accent, white, 0.84), 0.72),
+        '--secondary-text': rgbToHex(mixRgb(strong, { r: 0, g: 0, b: 0 }, 0.12)),
+        '--nav-text': rgbToHex(mixRgb(strong, { r: 40, g: 46, b: 56 }, 0.32)),
+        '--nav-active-bg': `linear-gradient(90deg, ${rgba(accent, 0.18)}, ${rgba(accent2, 0.08)})`,
+        '--brand-start': rgbToHex(mixRgb(accent, white, 0.26)),
+        '--brand-end': rgbToHex(strong),
+        '--brand-shadow': rgba(accent, 0.26),
+        '--primary-start': rgbToHex(mixRgb(accent, white, 0.12)),
+        '--primary-end': rgbToHex(strong),
+        '--button-shadow': rgba(accent2, 0.18),
+        '--chart-bg': `linear-gradient(180deg, ${rgba(nearWhite, 0.94)}, ${rgba(mixRgb(accent, white, 0.88), 0.90)})`,
+        '--output-bg': `linear-gradient(180deg, ${rgbToHex(nearWhite)}, ${rgbToHex(mixRgb(accent, white, 0.90))})`,
+        '--pink': rgbToHex(accent),
+        '--pink-strong': rgbToHex(strong),
+        '--pink-soft': rgbToHex(mixRgb(accent, white, 0.88)),
+        '--accent': rgbToHex(accent),
+        '--accent-rgb': rgbString(accent),
+        '--accent-strong': rgbToHex(strong),
+        '--accent-soft': rgbToHex(mixRgb(accent, white, 0.88)),
+        '--accent-2': rgbToHex(accent2),
+        '--accent-2-rgb': rgbString(accent2),
+        '--hero-bg-a': rgba(nearWhite, 0.95),
+        '--hero-bg-b': rgba(mixRgb(accent, white, 0.88), 0.90),
+        '--hero-text': '#17181d',
+        '--hero-muted': '#6c7280',
+        '--hero-line': rgba(mixRgb(accent, white, 0.36), 0.70),
+        '--hero-glass': rgba(nearWhite, 0.74),
+        '--hero-glow-a': rgba(accent, 0.16),
+        '--hero-glow-b': rgba(accent2, 0.12),
+        '--hero-stopped-glow-a': 'rgba(150, 157, 170, 0.14)',
+        '--hero-stopped-glow-b': 'rgba(108, 114, 128, 0.10)',
+        '--hero-overlay-a': 'rgba(255,255,255,0.88)',
+        '--hero-overlay-b': 'rgba(255,255,255,0.58)',
+        '--hero-overlay-c': 'rgba(255,255,255,0.24)',
+        '--hero-overlay-d': 'rgba(255,255,255,0.32)',
+        '--particle-line': rgbString(accent),
+        '--particle-dot': rgbString(accent2),
+        '--blue': rgbToHex(accent2),
+        '--blue-soft': rgbToHex(mixRgb(accent2, white, 0.90)),
+        '--green': '#14804a',
+        '--green-soft': '#eaf8f0',
+        '--amber': '#a56200',
+        '--amber-soft': '#fff6e4',
+        '--red': '#c6283d',
+        '--red-soft': '#fff0f2',
+        '--shadow': '0 18px 50px rgba(25, 32, 56, 0.08)',
+        '--shadow-soft': '0 8px 24px rgba(25, 32, 56, 0.06)'
+      };
+    }
+    function buildDarkThemePalette(accent) {
+      const ink = { r: 12, g: 16, b: 24 };
+      const surface = { r: 20, g: 26, b: 38 };
+      const surfaceSoft = { r: 16, g: 22, b: 33 };
+      const text = { r: 244, g: 247, b: 251 };
+      const muted = { r: 166, g: 176, b: 193 };
+      const accent2 = mixRgb({ r: 70, g: 146, b: 255 }, accent, 0.20);
+      const strong = mixRgb(accent, text, 0.18);
+      const accentSoft = mixRgb(accent, surface, 0.72);
+      return {
+        '--bg': '#0f141d',
+        '--text': rgbToHex(text),
+        '--muted': rgbToHex(muted),
+        '--subtle': '#737d91',
+        '--line': 'rgba(218, 226, 240, 0.14)',
+        '--line-strong': 'rgba(226, 233, 246, 0.22)',
+        '--page-bg-start': '#171d29',
+        '--page-bg-end': '#0a0e15',
+        '--body-glow-a': rgba(accent, 0.20),
+        '--body-glow-b': rgba(accent2, 0.14),
+        '--surface': '#151b27',
+        '--surface-soft': '#101722',
+        '--sidebar-bg': 'rgba(16, 21, 31, 0.72)',
+        '--sidebar-line': 'rgba(226, 233, 246, 0.12)',
+        '--panel-bg': 'rgba(20, 26, 38, 0.72)',
+        '--panel-line': 'rgba(226, 233, 246, 0.14)',
+        '--card-bg': 'rgba(22, 29, 42, 0.68)',
+        '--card-bg-soft': 'rgba(24, 31, 44, 0.52)',
+        '--glass-bg': 'rgba(18, 24, 36, 0.52)',
+        '--glass-bg-strong': 'rgba(27, 35, 50, 0.70)',
+        '--glass-line': 'rgba(255, 255, 255, 0.13)',
+        '--glass-highlight': 'rgba(255, 255, 255, 0.10)',
+        '--input-bg': 'rgba(12, 17, 26, 0.58)',
+        '--secondary-bg': 'rgba(226, 233, 246, 0.08)',
+        '--secondary-text': rgbToHex(text),
+        '--nav-text': '#d7deea',
+        '--nav-active-bg': `linear-gradient(90deg, ${rgba(accent, 0.24)}, ${rgba(accent2, 0.10)})`,
+        '--brand-start': rgbToHex(mixRgb(accent, text, 0.24)),
+        '--brand-end': rgbToHex(mixRgb(accent, ink, 0.22)),
+        '--brand-shadow': rgba(accent, 0.34),
+        '--primary-start': rgbToHex(strong),
+        '--primary-end': rgbToHex(mixRgb(accent, ink, 0.20)),
+        '--button-shadow': rgba(accent2, 0.22),
+        '--chart-bg': `linear-gradient(180deg, ${rgba(surface, 0.78)}, ${rgba(surfaceSoft, 0.70)})`,
+        '--output-bg': 'linear-gradient(180deg, rgba(12,17,26,0.76), rgba(18,24,36,0.68))',
+        '--pink': rgbToHex(accent),
+        '--pink-strong': rgbToHex(strong),
+        '--pink-soft': rgba(accentSoft, 0.92),
+        '--accent': rgbToHex(accent),
+        '--accent-rgb': rgbString(accent),
+        '--accent-strong': rgbToHex(strong),
+        '--accent-soft': rgba(accentSoft, 0.92),
+        '--accent-2': rgbToHex(accent2),
+        '--accent-2-rgb': rgbString(accent2),
+        '--hero-bg-a': 'rgba(18, 24, 36, 0.90)',
+        '--hero-bg-b': 'rgba(24, 31, 45, 0.78)',
+        '--hero-text': rgbToHex(text),
+        '--hero-muted': '#a7b0c0',
+        '--hero-line': 'rgba(226, 233, 246, 0.15)',
+        '--hero-glass': 'rgba(18, 24, 36, 0.56)',
+        '--hero-glow-a': rgba(accent, 0.22),
+        '--hero-glow-b': rgba(accent2, 0.16),
+        '--hero-stopped-glow-a': 'rgba(130, 141, 160, 0.16)',
+        '--hero-stopped-glow-b': 'rgba(86, 98, 118, 0.12)',
+        '--hero-overlay-a': 'rgba(12,17,26,0.20)',
+        '--hero-overlay-b': 'rgba(12,17,26,0.38)',
+        '--hero-overlay-c': 'rgba(255,255,255,0.04)',
+        '--hero-overlay-d': 'rgba(255,255,255,0.06)',
+        '--particle-line': rgbString(mixRgb(accent, text, 0.12)),
+        '--particle-dot': rgbString(accent2),
+        '--blue': rgbToHex(accent2),
+        '--blue-soft': 'rgba(74, 144, 255, 0.16)',
+        '--green': '#4ade80',
+        '--green-soft': 'rgba(74, 222, 128, 0.14)',
+        '--amber': '#f6c453',
+        '--amber-soft': 'rgba(246, 196, 83, 0.14)',
+        '--red': '#ff6b7a',
+        '--red-soft': 'rgba(255, 107, 122, 0.14)',
+        '--shadow': '0 20px 60px rgba(0, 0, 0, 0.34)',
+        '--shadow-soft': '0 10px 30px rgba(0, 0, 0, 0.24)'
+      };
+    }
+    function applyThemePalette(accentHex) {
+      const resolvedAppearance = resolveAppearance();
+      const palette = buildThemePalette(accentHex, resolvedAppearance);
+      Object.entries(palette).forEach(([name, value]) => {
+        document.body.style.setProperty(name, value);
+      });
+      document.documentElement.style.colorScheme = resolvedAppearance;
+      document.body.style.colorScheme = resolvedAppearance;
+      document.documentElement.dataset.appearance = appPrefs.appearance;
+      document.documentElement.dataset.resolvedAppearance = resolvedAppearance;
+      document.body.dataset.appearance = appPrefs.appearance;
+      document.body.dataset.resolvedAppearance = resolvedAppearance;
+      particleState = null;
+    }
+    function hasCjk(value) {
+      return /[\u3400-\u9fff]/.test(value);
+    }
+    function localizeText(value) {
+      const raw = String(value || '');
+      const marker = ' / ';
+      const index = raw.indexOf(marker);
+      if (index < 0) return raw;
+      const left = raw.slice(0, index);
+      const right = raw.slice(index + marker.length);
+      if (!hasCjk(left) && !hasCjk(right)) return raw;
+      return appPrefs.language === 'en' ? right : left;
+    }
+    function walkTextNodes(root, visitor) {
+      const skip = new Set(['SCRIPT', 'STYLE', 'TEXTAREA']);
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+        acceptNode(node) {
+          const parent = node.parentElement;
+          if (!parent || skip.has(parent.tagName)) return NodeFilter.FILTER_REJECT;
+          const raw = node.__rawText || node.nodeValue || '';
+          return raw.includes(' / ') ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+        }
+      });
+      const nodes = [];
+      while (walker.nextNode()) nodes.push(walker.currentNode);
+      nodes.forEach(visitor);
+    }
+    function applyLanguage() {
+      document.body.dataset.lang = appPrefs.language;
+      walkTextNodes(document.body, node => {
+        if (!node.__rawText) node.__rawText = node.nodeValue;
+        node.nodeValue = localizeText(node.__rawText);
+      });
+      document.querySelectorAll('[placeholder]').forEach(node => {
+        if (!node.__rawPlaceholder) node.__rawPlaceholder = node.getAttribute('placeholder');
+        node.setAttribute('placeholder', localizeText(node.__rawPlaceholder));
+      });
+      const toggle = $('languageToggle');
+      if (toggle) toggle.textContent = appPrefs.language === 'en' ? '中文' : 'English';
+      const select = $('languageSelect');
+      if (select) select.value = appPrefs.language;
+    }
+    function applyTheme() {
+      if (!availableThemes.includes(appPrefs.theme)) appPrefs.theme = 'rose';
+      document.body.dataset.theme = appPrefs.theme;
+      const accent = appPrefs.theme === 'custom'
+        ? appPrefs.customThemeColor
+        : themeAccentMap[appPrefs.theme] || themeAccentMap.rose;
+      applyThemePalette(accent);
+      const select = $('themeSelect');
+      if (select) select.value = appPrefs.theme;
+      const appearance = $('appearanceSelect');
+      if (appearance) appearance.value = appPrefs.appearance;
+      const color = $('customThemeColor');
+      if (color) color.value = rgbToHex(hexToRgb(appPrefs.customThemeColor));
+    }
+    function applyIcon() {
+      document.querySelectorAll('.brand-mark').forEach(node => { node.textContent = appPrefs.icon || '♥'; });
+      const select = $('iconSelect');
+      if (select) {
+        const hasOption = Array.from(select.options).some(option => option.value === appPrefs.icon);
+        select.value = hasOption ? appPrefs.icon : '♥';
+      }
+      const input = $('customIcon');
+      if (input && !['♥', '◆', '●', '✦', 'S'].includes(appPrefs.icon)) input.value = appPrefs.icon;
+    }
+    function applyPrefs() {
+      applyTheme();
+      applyIcon();
+      applyLanguage();
+      applyChartPanels();
+    }
+    function toggleLanguage() {
+      setLanguage(appPrefs.language === 'en' ? 'zh' : 'en');
+    }
+    function setLanguage(value) {
+      appPrefs.language = value === 'en' ? 'en' : 'zh';
+      localStorage.setItem('sophia.language', appPrefs.language);
+      const meta = pageMeta[currentView] || pageMeta.dashboard;
+      setText('pageTitle', meta[0]);
+      setText('pageSubtitle', meta[1]);
+      renderDashboard(lastDashboard);
+      applyLanguage();
+      applyChartPanels();
+    }
+    function setTheme(value) {
+      appPrefs.theme = availableThemes.includes(value) ? value : 'rose';
+      localStorage.setItem('sophia.theme', appPrefs.theme);
+      applyTheme();
+      applyLanguage();
+    }
+    function setAppearance(value) {
+      appPrefs.appearance = ['system', 'light', 'dark'].includes(value) ? value : 'system';
+      localStorage.setItem('sophia.appearance', appPrefs.appearance);
+      applyTheme();
+      applyLanguage();
+    }
+    function setCustomThemeColor(value) {
+      appPrefs.customThemeColor = rgbToHex(hexToRgb(value));
+      appPrefs.theme = 'custom';
+      localStorage.setItem('sophia.customThemeColor', appPrefs.customThemeColor);
+      localStorage.setItem('sophia.theme', appPrefs.theme);
+      applyTheme();
+      applyLanguage();
+    }
+    function setIcon(value) {
+      appPrefs.icon = String(value || '♥').slice(0, 2);
+      localStorage.setItem('sophia.icon', appPrefs.icon);
+      applyIcon();
+      applyLanguage();
+    }
     function setText(id, value) {
       const node = $(id);
-      if (node) node.textContent = value == null || value === '' ? '-' : String(value);
+      if (!node) return;
+      const text = value == null || value === '' ? '-' : String(value);
+      if (text.includes(' / ')) {
+        node.__rawText = text;
+        node.textContent = localizeText(text);
+      } else {
+        delete node.__rawText;
+        node.textContent = text;
+      }
+    }
+    function setHtml(id, value) {
+      const node = $(id);
+      if (node) node.innerHTML = value == null ? '' : String(value);
     }
     function cleanMessage(value) {
       const text = String(value || '')
@@ -682,11 +1610,12 @@
       setText('dashboardOutput', text);
     }
     function setBusy(enabled) {
+      busyCount = Math.max(0, busyCount + (enabled ? 1 : -1));
       const busy = $('busy');
       const orbit = $('stateOrbit');
-      if (busy) busy.classList.toggle('show', Boolean(enabled));
-      if (orbit) orbit.classList.toggle('is-busy', Boolean(enabled));
-      document.querySelectorAll('button').forEach(button => { button.disabled = Boolean(enabled); });
+      const active = busyCount > 0;
+      if (busy) busy.classList.toggle('show', active);
+      if (orbit) orbit.classList.toggle('is-busy', active);
     }
     function setClassName(id, base, tone) {
       const node = $(id);
@@ -710,6 +1639,409 @@
       return 'bad';
     }
 
+    function formatRate(value) {
+      const bytes = Math.max(0, Number(value) || 0);
+      if (bytes < 1024) return { value: String(Math.round(bytes)), unit: 'B/s', text: `${Math.round(bytes)} B/s` };
+      if (bytes < 1024 * 1024) {
+        const number = bytes / 1024;
+        const display = number < 10 ? number.toFixed(1) : String(Math.round(number));
+        return { value: display, unit: 'KB/s', text: `${display} KB/s` };
+      }
+      const number = bytes / 1024 / 1024;
+      const display = number < 10 ? number.toFixed(1) : String(Math.round(number));
+      return { value: display, unit: 'MB/s', text: `${display} MB/s` };
+    }
+
+    function formatBytes(value) {
+      const bytes = Math.max(0, Number(value) || 0);
+      if (bytes < 1024) return { value: String(Math.round(bytes)), unit: 'B', text: `${Math.round(bytes)} B` };
+      if (bytes < 1024 * 1024) {
+        const display = bytes / 1024 < 10 ? (bytes / 1024).toFixed(1) : String(Math.round(bytes / 1024));
+        return { value: display, unit: 'KB', text: `${display} KB` };
+      }
+      if (bytes < 1024 * 1024 * 1024) {
+        const display = bytes / 1024 / 1024 < 10 ? (bytes / 1024 / 1024).toFixed(1) : String(Math.round(bytes / 1024 / 1024));
+        return { value: display, unit: 'MB', text: `${display} MB` };
+      }
+      const display = (bytes / 1024 / 1024 / 1024).toFixed(2);
+      return { value: display, unit: 'GB', text: `${display} GB` };
+    }
+
+    function formatNumber(value, fallback = '-') {
+      if (value === null || value === undefined || value === '') return fallback;
+      return Number.isFinite(Number(value)) ? String(Math.round(Number(value))) : fallback;
+    }
+
+    function telemetryFallback() {
+      const running = Boolean(lastDashboard.status && lastDashboard.status.running);
+      telemetryState.mockPhase += 0.18;
+      const base = running ? 1 : 0.18;
+      const down = running
+        ? (60000 + Math.sin(telemetryState.mockPhase) * 28000 + Math.random() * 22000) * base
+        : 0;
+      const up = running
+        ? (16000 + Math.cos(telemetryState.mockPhase * 0.9) * 7000 + Math.random() * 5000) * base
+        : 0;
+      const latency = running
+        ? Math.max(26, 88 + Math.sin(telemetryState.mockPhase * 0.72) * 18 + Math.random() * 12)
+        : null;
+      return { running, download: down, upload: up, latency, packetLoss: null, usage: telemetryState.latest.usage, source: 'mock', updatedAt: Date.now() };
+    }
+
+    async function readTelemetry() {
+      if (!api) return telemetryFallback();
+      try {
+        const value = await invoke('telemetry', {});
+        const fallback = telemetryFallback();
+        return {
+          running: Boolean(value.running),
+          download: Number(value.download || 0),
+          upload: Number(value.upload || 0),
+          latency: Number.isFinite(Number(value.latency)) ? Number(value.latency) : fallback.latency,
+          packetLoss: Number.isFinite(Number(value.packetLoss)) ? Number(value.packetLoss) : null,
+          usage: value.usage || fallback.usage,
+          source: value.source || 'mihomo',
+          updatedAt: value.updatedAt || Date.now()
+        };
+      } catch (_error) {
+        return telemetryFallback();
+      }
+    }
+
+    function pushTelemetry(sample) {
+      telemetryState.latest = sample;
+      telemetryState.samples.push({ time: Date.now(), ...sample });
+      if (telemetryState.samples.length > telemetryState.maxSamples) {
+        telemetryState.samples.splice(0, telemetryState.samples.length - telemetryState.maxSamples);
+      }
+      renderTelemetry(sample);
+    }
+
+    function renderTelemetry(sample = telemetryState.latest) {
+      const down = formatRate(sample.download);
+      const up = formatRate(sample.upload);
+      setText('heroDownload', down.text);
+      setText('heroUpload', up.text);
+      setText('metricDownload', down.value);
+      setText('metricDownloadUnit', down.unit);
+      setText('metricUpload', up.value);
+      setText('metricUploadUnit', up.unit);
+      setText('metricLatency', formatNumber(sample.latency));
+      const hasPacketLoss = sample.packetLoss !== null && sample.packetLoss !== undefined && sample.packetLoss !== '';
+      const packetLoss = Number(sample.packetLoss);
+      if (hasPacketLoss && Number.isFinite(packetLoss)) {
+        setText('metricPacketLoss', packetLoss.toFixed(packetLoss < 10 ? 1 : 0));
+        setText('metricPacketLossUnit', '%');
+      } else {
+        setText('metricPacketLoss', '未检测 / Not tested');
+        const packetLossUnit = $('metricPacketLossUnit');
+        if (packetLossUnit) {
+          delete packetLossUnit.__rawText;
+          packetLossUnit.textContent = '';
+        }
+      }
+      const usageTotal = sample.usage && sample.usage.total ? (Number(sample.usage.total.download) || 0) + (Number(sample.usage.total.upload) || 0) : 0;
+      const usage = formatBytes(usageTotal);
+      setText('metricUsage', usage.value);
+      setText('metricUsageUnit', usage.unit);
+      drawSparkline('sparkDownload', telemetryState.samples.map(item => item.download), cssColor('--accent-2', '#2f8ee8'));
+      drawSparkline('sparkUpload', telemetryState.samples.map(item => item.upload), cssColor('--accent', '#e83f83'));
+      drawSparkline('sparkLatency', telemetryState.samples.map(item => item.latency || 0), '#12a778');
+      drawSparkline('sparkPacketLoss', telemetryState.samples.map(item => Number.isFinite(Number(item.packetLoss)) ? Number(item.packetLoss) : 0), '#8b5cf6');
+      drawSparkline('sparkUsage', telemetryState.samples.map(item => {
+        const itemTotal = item.usage && item.usage.total ? (Number(item.usage.total.download) || 0) + (Number(item.usage.total.upload) || 0) : 0;
+        return itemTotal;
+      }), '#a56200');
+      if (chartState.bandwidth) drawBandwidthChart();
+      if (chartState.latency) drawLatencyChart();
+      renderUsageSummary(sample.usage);
+    }
+
+    function applyChartPanels() {
+      [
+        ['bandwidth', 'bandwidthPanel', 'bandwidthToggle'],
+        ['latency', 'latencyPanel', 'latencyToggle']
+      ].forEach(([key, panelId, buttonId]) => {
+        const panel = $(panelId);
+        const button = $(buttonId);
+        const open = Boolean(chartState[key]);
+        if (panel) panel.classList.toggle('is-collapsed', !open);
+        if (button) button.textContent = open ? tr('收起', 'Close') : tr('展开', 'Open');
+      });
+      if (chartState.bandwidth) drawBandwidthChart();
+      if (chartState.latency) drawLatencyChart();
+    }
+
+    function toggleChart(key) {
+      if (!Object.prototype.hasOwnProperty.call(chartState, key)) return;
+      chartState[key] = !chartState[key];
+      applyChartPanels();
+    }
+
+    function cssColor(name, fallback) {
+      const value = getComputedStyle(document.body).getPropertyValue(name).trim();
+      return value || fallback;
+    }
+
+    function canvasContext(id) {
+      const canvas = $(id);
+      if (!canvas) return null;
+      const rect = canvas.getBoundingClientRect();
+      const ratio = window.devicePixelRatio || 1;
+      const width = Math.max(1, Math.floor(rect.width * ratio));
+      const height = Math.max(1, Math.floor(rect.height * ratio));
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+      return { canvas, ctx, width: rect.width, height: rect.height };
+    }
+
+    function drawSparkline(id, values, color) {
+      const target = canvasContext(id);
+      if (!target) return;
+      const { ctx, width, height } = target;
+      ctx.clearRect(0, 0, width, height);
+      const clean = values.map(value => Number(value) || 0);
+      const max = Math.max(1, ...clean);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      clean.forEach((value, index) => {
+        const x = clean.length <= 1 ? 0 : (index / (clean.length - 1)) * width;
+        const y = height - (value / max) * (height - 4) - 2;
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    function drawChartGrid(ctx, width, height) {
+      ctx.clearRect(0, 0, width, height);
+      ctx.strokeStyle = 'rgba(108, 114, 128, 0.16)';
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= 4; i += 1) {
+        const y = 16 + (i / 4) * (height - 32);
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+      }
+    }
+
+    function drawLine(ctx, values, max, width, height, color) {
+      const clean = values.map(value => Number(value) || 0);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2.4;
+      ctx.lineJoin = 'round';
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      clean.forEach((value, index) => {
+        const x = clean.length <= 1 ? 0 : (index / (clean.length - 1)) * width;
+        const y = height - 18 - (value / max) * (height - 42);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+    }
+
+    function drawBandwidthChart() {
+      const target = canvasContext('bandwidthChart');
+      if (!target) return;
+      const { ctx, width, height } = target;
+      const down = telemetryState.samples.map(item => item.download);
+      const up = telemetryState.samples.map(item => item.upload);
+      const max = Math.max(1024, ...down, ...up);
+      drawChartGrid(ctx, width, height);
+      drawLine(ctx, down, max, width, height, cssColor('--accent-2', '#2f8ee8'));
+      drawLine(ctx, up, max, width, height, cssColor('--accent', '#e83f83'));
+      ctx.fillStyle = 'rgba(108, 114, 128, 0.76)';
+      ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(`0`, 4, height - 6);
+      ctx.fillText(formatRate(max).text, 4, 14);
+    }
+
+    function drawLatencyChart() {
+      const target = canvasContext('latencyChart');
+      if (!target) return;
+      const { ctx, width, height } = target;
+      const latency = telemetryState.samples.map(item => item.latency || 0);
+      const max = Math.max(120, ...latency);
+      drawChartGrid(ctx, width, height);
+      drawLine(ctx, latency, max, width, height, '#12a778');
+      ctx.fillStyle = 'rgba(108, 114, 128, 0.76)';
+      ctx.font = '12px -apple-system, BlinkMacSystemFont, sans-serif';
+      ctx.fillText(`${Math.round(max)} ms`, 4, 14);
+    }
+
+    function renderUsageSummary(usage) {
+      const total = usage && usage.total ? usage.total : { download: 0, upload: 0 };
+      const current = usage && usage.current ? usage.current : null;
+      const totalText = formatBytes((Number(total.download) || 0) + (Number(total.upload) || 0)).text;
+      const downText = formatBytes(total.download).text;
+      const upText = formatBytes(total.upload).text;
+      const currentText = current
+        ? `${escapeHtml(current.profileName || '未选择订阅')} · ${escapeHtml(current.node || '未选择节点')} · ↓ ${escapeHtml(formatBytes(current.download).text)} / ↑ ${escapeHtml(formatBytes(current.upload).text)}`
+        : '当前订阅/节点今天还没有记录到流量。';
+      setHtml('usageSummary', `
+        <div class="summary-title">今日已用：${escapeHtml(totalText)}</div>
+        <div class="summary-copy">下载 ${escapeHtml(downText)} / 上传 ${escapeHtml(upText)}</div>
+        <div class="row-subtitle">${currentText}</div>
+      `);
+    }
+
+    async function loadUsage(days = 1) {
+      if (!api) return telemetryState.latest.usage || { days, total: { download: 0, upload: 0 }, current: null, records: [] };
+      try {
+        return await invoke('usage-summary', { days });
+      } catch (_error) {
+        return telemetryState.latest.usage || { days, total: { download: 0, upload: 0 }, current: null, records: [] };
+      }
+    }
+
+    function renderUsageRows(usage) {
+      const records = Array.isArray(usage.records) ? usage.records : [];
+      if (!records.length) return '<div class="empty">所选时间范围内还没有流量记录。<br>No usage recorded in this range.</div>';
+      return records.slice(0, 80).map(record => {
+        const total = (Number(record.download) || 0) + (Number(record.upload) || 0);
+        return `
+          <div class="profile-row">
+            <div>
+              <div class="row-title">${escapeHtml(record.profileName || '未选择订阅')}</div>
+              <div class="row-subtitle">${escapeHtml(record.day || '')} · ${escapeHtml(record.node || '未选择节点')}</div>
+            </div>
+            <div class="row-actions">
+              <span class="chip pink">${escapeHtml(formatBytes(total).text)}</span>
+              <span class="chip">↓ ${escapeHtml(formatBytes(record.download).text)}</span>
+              <span class="chip">↑ ${escapeHtml(formatBytes(record.upload).text)}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function openUsageModal(days = 1) {
+      const usage = await loadUsage(days);
+      const total = formatBytes((Number(usage.total && usage.total.download) || 0) + (Number(usage.total && usage.total.upload) || 0)).text;
+      openModal(
+        '流量统计 / Usage Details',
+        `当前范围：近 ${days} 天，总计 ${total}`,
+        `<div class="actions">
+          <button class="secondary" type="button" onclick="openUsageModal(1)">今天 / Today</button>
+          <button class="secondary" type="button" onclick="openUsageModal(7)">近 7 天 / 7 Days</button>
+          <button class="secondary" type="button" onclick="openUsageModal(30)">近 30 天 / 30 Days</button>
+        </div>
+        <div class="profile-list">${renderUsageRows(usage)}</div>`,
+        '<button type="button" onclick="closeModal()">关闭 / Close</button>'
+      );
+      applyLanguage();
+    }
+
+    function startTelemetryLoop() {
+      if (telemetryTimer) return;
+      readTelemetry().then(pushTelemetry);
+      telemetryTimer = window.setInterval(() => {
+        readTelemetry().then(pushTelemetry);
+      }, 1000);
+    }
+
+    function setupParticles() {
+      const canvas = $('particleCanvas');
+      if (!canvas) return null;
+      const rect = canvas.getBoundingClientRect();
+      const count = Math.max(58, Math.min(116, Math.floor(rect.width / 10)));
+      const particles = Array.from({ length: count }, () => ({
+        x: Math.random() * rect.width,
+        y: Math.random() * rect.height,
+        vx: 0.18 + Math.random() * 0.42,
+        vy: -0.18 + Math.random() * 0.36,
+        r: 1 + Math.random() * 1.6,
+        phase: Math.random() * Math.PI * 2
+      }));
+      return { canvas, particles, lastWidth: rect.width, lastHeight: rect.height };
+    }
+
+    function drawParticles() {
+      const target = canvasContext('particleCanvas');
+      if (!target) return;
+      if (!Number.isFinite(target.width) || !Number.isFinite(target.height) || target.width <= 1 || target.height <= 1) {
+        animationFrame = window.requestAnimationFrame(drawParticles);
+        return;
+      }
+      if (!particleState || Math.abs(particleState.lastWidth - target.width) > 8 || Math.abs(particleState.lastHeight - target.height) > 8) {
+        particleState = setupParticles();
+      }
+      const { ctx, width, height } = target;
+      if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 1 || height <= 1) {
+        animationFrame = window.requestAnimationFrame(drawParticles);
+        return;
+      }
+      const running = Boolean(lastDashboard.status && lastDashboard.status.running);
+      const styles = getComputedStyle(document.body);
+      const lineRgb = styles.getPropertyValue('--particle-line').trim() || '80, 122, 178';
+      const dotRgb = styles.getPropertyValue('--particle-dot').trim() || '232, 63, 131';
+      const speedFactor = running ? 1 : 0.46;
+      ctx.clearRect(0, 0, width, height);
+      const particles = particleState ? particleState.particles : [];
+      const time = Date.now() / 1000;
+      for (let lane = 0; lane < 5; lane += 1) {
+        const y = ((height * (0.16 + lane * 0.17)) + Math.sin(time * 0.7 + lane) * 16) % height;
+        const offset = ((time * (running ? 72 : 28) + lane * 96) % (width + 180)) - 180;
+        if (!Number.isFinite(y) || !Number.isFinite(offset)) continue;
+        const gradient = ctx.createLinearGradient(offset, y, offset + 180, y + 28);
+        gradient.addColorStop(0, `rgba(${lineRgb}, 0)`);
+        gradient.addColorStop(0.48, `rgba(${lineRgb}, ${running ? 0.22 : 0.13})`);
+        gradient.addColorStop(1, `rgba(${dotRgb}, 0)`);
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = lane % 2 === 0 ? 1.6 : 1;
+        ctx.beginPath();
+        ctx.moveTo(offset, y);
+        ctx.bezierCurveTo(offset + 52, y - 22, offset + 112, y + 38, offset + 180, y + 4);
+        ctx.stroke();
+      }
+      for (const point of particles) {
+        point.phase += 0.012 * speedFactor;
+        point.x += point.vx * speedFactor + Math.sin(point.phase) * 0.05;
+        point.y += point.vy * speedFactor + Math.cos(point.phase * 0.8) * 0.05;
+        if (point.x > width + 24) point.x = -24;
+        if (point.y < -24) point.y = height + 24;
+        if (point.y > height + 24) point.y = -24;
+      }
+      for (let i = 0; i < particles.length; i += 1) {
+        const a = particles[i];
+        for (let j = i + 1; j < particles.length; j += 1) {
+          const b = particles[j];
+          const dx = a.x - b.x;
+          const dy = a.y - b.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < 118) {
+            const alpha = (1 - dist / 118) * (running ? 0.34 : 0.18);
+            ctx.strokeStyle = `rgba(${running ? lineRgb : lineRgb},${alpha})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(a.x, a.y);
+            ctx.lineTo(b.x, b.y);
+            ctx.stroke();
+          }
+        }
+      }
+      for (const point of particles) {
+        ctx.fillStyle = running ? `rgba(${dotRgb}, 0.74)` : `rgba(${dotRgb}, 0.50)`;
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, point.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      animationFrame = window.requestAnimationFrame(drawParticles);
+    }
+
+    function startParticleAnimation() {
+      if (animationFrame) return;
+      particleState = setupParticles();
+      drawParticles();
+    }
+
     function showView(name) {
       currentView = name;
       document.querySelectorAll('.view').forEach(view => view.classList.toggle('active', view.id === `view-${name}`));
@@ -717,36 +2049,36 @@
       const meta = pageMeta[name] || pageMeta.dashboard;
       setText('pageTitle', meta[0]);
       setText('pageSubtitle', meta[1]);
+      applyLanguage();
     }
 
     function renderStatus(dashboard) {
       const status = dashboard && dashboard.status ? dashboard.status : {};
-      const ports = status.ports || {};
       const tone = runtimeTone(status);
       const runtime = status.running ? '运行中 / Running' : status.orphanCore ? '残留核心 / Orphan core' : '未运行 / Stopped';
-      setText('runtimeHeadline', runtime);
-      setText('runtimeChip', runtime);
-      setClassName('runtimeDot', 'status-dot', tone);
-      setClassName('runtimeChip', 'chip', tone);
-      $('stateOrbit').classList.toggle('is-running', Boolean(status.running));
-      setText('runtimeCopy', status.running
-        ? 'SophiaVPN 正在管理本地代理。系统代理和终端代理应指向 SophiaVPN。'
+      const hero = $('telemetryHero');
+      if (hero) hero.classList.toggle('is-stopped', !status.running);
+      setText('heroRuntime', runtime);
+      setText('heroRuntimeChip', runtime);
+      setClassName('heroRuntimeChip', 'chip', tone);
+      setClassName('heroStateDot', 'hero-state-dot', status.running ? 'ok' : '');
+      setText('heroNode', status.running
+        ? `${tr('当前节点', 'Current node')}: ${status.node || '-'}`
         : status.orphanCore
-          ? '检测到残留核心，运行“关闭 / Stop”可以清理。'
-          : 'SophiaVPN 当前未接管代理。点击“启动”后会完整接管系统代理和终端代理。');
-      const rows = [
-        ['模式 / Mode', modeText(status.mode)],
-        ['节点 / Node', status.node || '-'],
-        ['HTTP / SOCKS', `${ports.http || '-'} / ${ports.socks || '-'}`],
-        ['核心 / Core', status.coreReachable ? '有响应 / Reachable' : '无响应 / Not reachable'],
-        ['终端代理 / Terminal', status.terminalProxy ? '已开启 / Enabled' : '未开启 / Disabled'],
-        ['数据目录 / Data', dashboard.dataDir || '-']
-      ];
-      $('statusBox').innerHTML = rows.map(([label, value]) => `
-        <div class="metric">
-          <div class="metric-label">${escapeHtml(label)}</div>
-          <div class="metric-value">${escapeHtml(value)}</div>
-        </div>`).join('');
+          ? tr('检测到残留核心。运行关闭可清理本地核心进程。', 'Orphan core detected. Stop can clean up the local core process.')
+          : tr('当前没有接管系统代理。点击启动后进入实时网络状态中心。', 'SophiaVPN is not managing the system proxy. Start to enter the live network center.'));
+      setText('heroMode', modeText(status.mode));
+      setText('heroCore', status.coreReachable ? '有响应 / Reachable' : '无响应 / Not reachable');
+      setText('heroSystemProxy', dashboard.systemProxy && dashboard.systemProxy.ownedBySophia ? 'SophiaVPN' : dashboard.systemProxy && dashboard.systemProxy.enabled ? '其他 / Other' : '未启用 / Off');
+      setText('heroTerminalProxy', status.terminalProxy ? '已开启 / Enabled' : '未开启 / Disabled');
+      setHtml('heroActions', status.running ? `
+        <button class="secondary" type="button" onclick="runAction('test')">连通性测试 / Test</button>
+        <button class="secondary" type="button" onclick="refresh()">刷新 / Refresh</button>
+        <button class="danger" type="button" onclick="runAction('off')"><span class="icon square"></span>关闭 / Stop</button>
+      ` : `
+        <button class="primary" type="button" onclick="runAction('on')"><span class="icon play"></span>启动 / Start</button>
+        <button class="secondary" type="button" onclick="runAction('test')">连通性测试 / Test</button>
+      `);
       renderModeButtons(status.mode);
     }
 
@@ -890,11 +2222,32 @@
       renderProfiles();
       renderProxyOwnership();
       renderConflicts();
+      applyPrefs();
     }
 
+    function timeoutForAction(action) {
+      if (action === 'telemetry') return 2500;
+      if (action === 'nodes-delay') return 120000;
+      if (action === 'import' || action === 'profile-use') return 90000;
+      if (action === 'install-sophia' || action === 'install-svpn') return 90000;
+      if (action === 'on' || action === 'off') return 60000;
+      if (action === 'dashboard') return 25000;
+      return 45000;
+    }
+    function withTimeout(promise, timeoutMs, action) {
+      let timer = null;
+      const timeout = new Promise((_, reject) => {
+        timer = window.setTimeout(() => {
+          reject(new Error(`操作超时：${action}。界面已恢复，你可以刷新状态或稍后重试。 Operation timed out.`));
+        }, timeoutMs);
+      });
+      return Promise.race([promise, timeout]).finally(() => {
+        if (timer) window.clearTimeout(timer);
+      });
+    }
     async function invoke(action, payload) {
       if (!api) throw new Error('SophiaVPN 桌面桥未连接。请从 SophiaVPN.app 打开此页面。 Desktop bridge is unavailable.');
-      return api.invoke(action, payload || {});
+      return withTimeout(api.invoke(action, payload || {}), timeoutForAction(action), action);
     }
     async function call(action, payload) {
       setBusy(true);
@@ -1061,8 +2414,29 @@
     window.addEventListener('keydown', event => {
       if (event.key === 'Escape' && activeModal) closeModal();
     });
+    window.addEventListener('resize', () => {
+      particleState = null;
+      renderTelemetry();
+    });
+    if (systemDarkQuery) {
+      const handleSystemAppearanceChange = () => {
+        if (appPrefs.appearance === 'system') {
+          applyTheme();
+          applyLanguage();
+        }
+      };
+      if (typeof systemDarkQuery.addEventListener === 'function') {
+        systemDarkQuery.addEventListener('change', handleSystemAppearanceChange);
+      } else if (typeof systemDarkQuery.addListener === 'function') {
+        systemDarkQuery.addListener(handleSystemAppearanceChange);
+      }
+    }
 
     renderDashboard({});
+    applyPrefs();
+    applyChartPanels();
+    startParticleAnimation();
+    startTelemetryLoop();
     refresh();
   </script>
 </body>

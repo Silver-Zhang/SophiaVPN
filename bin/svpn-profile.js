@@ -156,8 +156,11 @@ function deleteProfile(paths, selector, options = {}) {
   if (isActive) {
     delete settings.currentProfileId;
     delete settings.currentProfileName;
-    writeJson(paths.settingsFile, settings);
   }
+  if (settings.profileSelections && typeof settings.profileSelections === 'object') {
+    delete settings.profileSelections[profile.id];
+  }
+  if (isActive || (settings.profileSelections && typeof settings.profileSelections === 'object')) writeJson(paths.settingsFile, settings);
 
   console.log(`Profile deleted: ${profile.name || profile.id}`);
   if (isActive) console.log('The active Clash config file was kept to avoid breaking a running backend.');

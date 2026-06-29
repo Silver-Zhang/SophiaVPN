@@ -613,7 +613,12 @@ async function restoreSelection(paths, ports) {
   const selector = getSelectorName(paths, proxies, config && config.mode);
   const group = proxies.proxies && proxies.proxies[selector];
   const candidates = group && Array.isArray(group.all) ? group.all : [];
-  let selected = settings.currentProxy;
+  const profileSelections = settings.profileSelections && typeof settings.profileSelections === 'object'
+    ? settings.profileSelections
+    : {};
+  let selected = settings.currentProfileId && profileSelections[settings.currentProfileId]
+    ? profileSelections[settings.currentProfileId]
+    : settings.currentProxy;
   if (!selected || !candidates.includes(selected)) {
     selected = candidates.find(name => !['DIRECT', 'REJECT', 'PASS'].includes(name)) || '';
   }
@@ -625,6 +630,12 @@ async function restoreSelection(paths, ports) {
   }
   if (selected) {
     settings.currentProxy = selected;
+    if (settings.currentProfileId) {
+      settings.profileSelections = {
+        ...(settings.profileSelections && typeof settings.profileSelections === 'object' ? settings.profileSelections : {}),
+        [settings.currentProfileId]: selected
+      };
+    }
     writeJson(paths.settingsFile, settings);
   }
 }
@@ -926,6 +937,12 @@ async function useNode(paths, args) {
   await requestCore(ports, '/connections', { method: 'DELETE' }).catch(() => null);
   const settings = readJson(paths.settingsFile, {});
   settings.currentProxy = node;
+  if (settings.currentProfileId) {
+    settings.profileSelections = {
+      ...(settings.profileSelections && typeof settings.profileSelections === 'object' ? settings.profileSelections : {}),
+      [settings.currentProfileId]: node
+    };
+  }
   writeJson(paths.settingsFile, settings);
   const delay = await getDelay(ports, node);
   console.log(`节点已切换：${node}${delay === null ? '' : ` (${delay} ms)`}`);
@@ -1165,8 +1182,19 @@ async function useProfile(paths, args) {
   assertPathInHome(profile.fileName, 'Subscription profile');
   fs.copyFileSync(profile.fileName, assertPathInHome(paths.activeConfigFile, 'Active config'));
   const settings = readJson(paths.settingsFile, {});
+  if (settings.currentProfileId && settings.currentProxy) {
+    settings.profileSelections = {
+      ...(settings.profileSelections && typeof settings.profileSelections === 'object' ? settings.profileSelections : {}),
+      [settings.currentProfileId]: settings.currentProxy
+    };
+  }
   settings.currentProfileId = profile.id;
   settings.currentProfile = paths.activeConfigFile;
+  if (settings.profileSelections && settings.profileSelections[profile.id]) {
+    settings.currentProxy = settings.profileSelections[profile.id];
+  } else {
+    delete settings.currentProxy;
+  }
   writeJson(paths.settingsFile, settings);
   if (isRunning(paths)) await restart(paths, { ...args, proxy: false });
   console.log(`订阅方案已切换：${profile.name || profile.id}`);

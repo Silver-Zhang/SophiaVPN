@@ -1,7 +1,8 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage } = require('electron');
 const fs = require('fs');
+const http = require('http');
 const os = require('os');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
@@ -9,8 +10,39 @@ const { spawn, spawnSync } = require('child_process');
 const APP_ROOT = __dirname;
 const DATA_DIR = process.env.SOPHIAVPN_DATA_DIR || path.join(os.homedir(), '.config', 'SophiaVPN');
 const LOG_DIR = path.join(DATA_DIR, 'logs');
+const USAGE_LEDGER = path.join(DATA_DIR, 'usage-ledger.json');
 const SOPHIA = path.join(APP_ROOT, 'bin', 'sophia');
+const DESKTOP_SMOKE = process.env.SOPHIAVPN_DESKTOP_SMOKE === '1';
 let mainWindow = null;
+let tray = null;
+let isQuitting = false;
+let trayStatusTimer = null;
+let trayTitleTimer = null;
+let trayTrafficRequest = null;
+let trayTrafficPort = null;
+let trayTrafficBuffer = '';
+let usageBaseline = null;
+let cachedTrayStatus = {
+  running: false,
+  coreReachable: false,
+  node: '',
+  profileId: '',
+  profileName: '',
+  ports: null,
+  label: '状态未知',
+  updatedAt: 0
+};
+let cachedTraffic = {
+  download: 0,
+  upload: 0,
+  downloadTotal: 0,
+  uploadTotal: 0,
+  updatedAt: 0
+};
+
+if (DESKTOP_SMOKE) {
+  app.setPath('userData', path.join(os.tmpdir(), `sophiavpn-desktop-smoke-${process.pid}`));
+}
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true });
@@ -75,6 +107,11 @@ function readJson(file, fallback = {}) {
   }
 }
 
+function writeJson(file, value) {
+  ensureDir(path.dirname(file));
+  fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n');
+}
+
 function readSettings() {
   return readJson(path.join(DATA_DIR, 'settings.json'), {});
 }
@@ -97,6 +134,127 @@ function readProfilesData() {
       importedAt: profile.importedAt || '',
       selected: Boolean(profile.id && profile.id === settings.currentProfileId)
     }))
+  };
+}
+
+function currentProfileInfo() {
+  const profiles = readProfilesData();
+  const selected = profiles.rows.find(profile => profile.selected) || null;
+  return {
+    id: selected ? selected.id : profiles.currentProfileId || 'unknown-profile',
+    name: selected ? selected.name : profiles.currentProfileId || '未选择订阅'
+  };
+}
+
+function todayKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function readUsageLedger() {
+  const ledger = readJson(USAGE_LEDGER, { version: 1, days: {} });
+  if (!ledger || typeof ledger !== 'object') return { version: 1, days: {} };
+  if (!ledger.days || typeof ledger.days !== 'object') ledger.days = {};
+  if (!ledger.version) ledger.version = 1;
+  return ledger;
+}
+
+function usageRecordKey(profileId, node) {
+  return `${profileId || 'unknown-profile'}::${node || '未选择节点'}`;
+}
+
+function addUsageDelta({ download, upload }) {
+  const down = Math.max(0, Math.floor(Number(download) || 0));
+  const up = Math.max(0, Math.floor(Number(upload) || 0));
+  if (!down && !up) return;
+
+  const profile = currentProfileInfo();
+  const node = cachedTrayStatus.node || '未选择节点';
+  const day = todayKey();
+  const key = usageRecordKey(profile.id, node);
+  const ledger = readUsageLedger();
+  if (!ledger.days[day]) ledger.days[day] = { records: {} };
+  if (!ledger.days[day].records) ledger.days[day].records = {};
+  const existing = ledger.days[day].records[key] || {
+    profileId: profile.id,
+    profileName: profile.name,
+    node,
+    download: 0,
+    upload: 0,
+    updatedAt: ''
+  };
+  existing.profileName = profile.name;
+  existing.node = node;
+  existing.download += down;
+  existing.upload += up;
+  existing.updatedAt = new Date().toISOString();
+  ledger.days[day].records[key] = existing;
+  ledger.updatedAt = existing.updatedAt;
+  try {
+    writeJson(USAGE_LEDGER, ledger);
+  } catch (_error) {
+    // Usage accounting is best-effort and must never affect the VPN.
+  }
+}
+
+function recordTrafficTotals(traffic, corePort) {
+  const downloadTotal = Number(traffic.downTotal || traffic.downloadTotal || 0);
+  const uploadTotal = Number(traffic.upTotal || traffic.uploadTotal || 0);
+  if (!Number.isFinite(downloadTotal) || !Number.isFinite(uploadTotal)) return;
+
+  const profile = currentProfileInfo();
+  const recordKey = usageRecordKey(profile.id, cachedTrayStatus.node);
+  if (
+    !usageBaseline ||
+    usageBaseline.corePort !== corePort ||
+    usageBaseline.recordKey !== recordKey ||
+    downloadTotal < usageBaseline.downloadTotal ||
+    uploadTotal < usageBaseline.uploadTotal
+  ) {
+    usageBaseline = { corePort, recordKey, downloadTotal, uploadTotal };
+    return;
+  }
+
+  const download = downloadTotal - usageBaseline.downloadTotal;
+  const upload = uploadTotal - usageBaseline.uploadTotal;
+  usageBaseline = { corePort, recordKey, downloadTotal, uploadTotal };
+  addUsageDelta({ download, upload });
+}
+
+function usageSummary(days = 1) {
+  const ledger = readUsageLedger();
+  const wantedDays = [];
+  for (let index = 0; index < days; index += 1) {
+    const date = new Date();
+    date.setDate(date.getDate() - index);
+    wantedDays.push(todayKey(date));
+  }
+
+  const records = [];
+  for (const day of wantedDays) {
+    const dayRecords = ledger.days[day] && ledger.days[day].records ? ledger.days[day].records : {};
+    for (const record of Object.values(dayRecords)) {
+      records.push({ day, ...record });
+    }
+  }
+
+  const total = records.reduce((sum, record) => ({
+    download: sum.download + (Number(record.download) || 0),
+    upload: sum.upload + (Number(record.upload) || 0)
+  }), { download: 0, upload: 0 });
+
+  const currentKey = usageRecordKey(cachedTrayStatus.profileId, cachedTrayStatus.node);
+  const todayRecords = ledger.days[todayKey()] && ledger.days[todayKey()].records ? ledger.days[todayKey()].records : {};
+  const current = todayRecords[currentKey] || null;
+  return {
+    ok: true,
+    days,
+    total,
+    current,
+    records: records.sort((a, b) => (b.download + b.upload) - (a.download + a.upload)),
+    updatedAt: ledger.updatedAt || ''
   };
 }
 
@@ -401,6 +559,7 @@ async function buildDashboard(options = {}) {
 async function actionResult(result, action) {
   const raw = resultText(result);
   const dashboard = await buildDashboard(action === 'nodes-delay' ? { nodeDelay: true } : {});
+  applyTrayStatus(dashboard.status);
   const text = action === 'conflicts'
     ? summarizeConflicts(raw)
     : action === 'system-proxy-status'
@@ -411,10 +570,73 @@ async function actionResult(result, action) {
   return { ...result, text, rawText: raw, dashboard };
 }
 
+async function buildTelemetry() {
+  if (!cachedTrayStatus.updatedAt || Date.now() - cachedTrayStatus.updatedAt > 5000) {
+    try {
+      await refreshTrayStatus();
+    } catch (_error) {
+      // Best effort: telemetry is a read-only dashboard enhancement.
+    }
+  }
+  const stale = Date.now() - cachedTraffic.updatedAt > 3500;
+  return {
+    ok: true,
+    running: Boolean(cachedTrayStatus.running),
+    coreReachable: Boolean(cachedTrayStatus.coreReachable),
+    node: cachedTrayStatus.node || '',
+    download: cachedTrayStatus.running && !stale ? cachedTraffic.download : 0,
+    upload: cachedTrayStatus.running && !stale ? cachedTraffic.upload : 0,
+    downloadTotal: cachedTraffic.downloadTotal || 0,
+    uploadTotal: cachedTraffic.uploadTotal || 0,
+    latency: null,
+    packetLoss: null,
+    source: cachedTrayStatus.running && !stale ? 'mihomo' : 'idle',
+    usage: usageSummary(1),
+    updatedAt: Date.now()
+  };
+}
+
+function applyTrayStatus(status) {
+  const profile = currentProfileInfo();
+  if (status && status.running) {
+    cachedTrayStatus = {
+      running: true,
+      coreReachable: Boolean(status.coreReachable),
+      node: status.node || '',
+      profileId: profile.id,
+      profileName: profile.name,
+      ports: status.ports || null,
+      label: `运行中 · ${status.node || '未选择节点'}`,
+      updatedAt: Date.now()
+    };
+    if (status.coreReachable) startTrafficStream(status.ports);
+    else stopTrafficStream();
+  } else {
+    cachedTrayStatus = {
+      running: false,
+      coreReachable: Boolean(status && status.coreReachable),
+      node: '',
+      profileId: profile.id,
+      profileName: profile.name,
+      ports: status && status.ports ? status.ports : null,
+      label: status && status.orphanCore ? '残留核心' : '未运行',
+      updatedAt: Date.now()
+    };
+    stopTrafficStream();
+  }
+  updateTrayPresentation();
+}
+
 async function handleAction(action, payload = {}) {
   switch (action) {
     case 'dashboard':
       return buildDashboard();
+    case 'telemetry':
+      return buildTelemetry();
+    case 'usage-summary': {
+      const days = Math.max(1, Math.min(30, Number(payload.days || 1)));
+      return usageSummary(days);
+    }
     case 'install-sophia':
     case 'install-svpn': {
       const result = await run('bash', [path.join(APP_ROOT, 'scripts', 'install-sophia.sh')]);
@@ -517,6 +739,11 @@ async function handleAction(action, payload = {}) {
 }
 
 function createWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.show();
+    mainWindow.focus();
+    return;
+  }
   mainWindow = new BrowserWindow({
     width: 1080,
     height: 760,
@@ -530,16 +757,274 @@ function createWindow() {
     }
   });
   mainWindow.loadFile(path.join(APP_ROOT, 'renderer', 'macos.html'));
+  mainWindow.on('close', event => {
+    if (isQuitting || process.platform !== 'darwin') return;
+    event.preventDefault();
+    mainWindow.hide();
+  });
+  mainWindow.on('closed', () => {
+    mainWindow = null;
+  });
 }
+
+function trayIcon() {
+  const png = path.join(APP_ROOT, 'resources', 'SophiaVPN-icon.png');
+  const icon = fs.existsSync(png) ? nativeImage.createFromPath(png) : nativeImage.createEmpty();
+  const resized = icon.isEmpty() ? icon : icon.resize({ width: 18, height: 18 });
+  if (process.platform === 'darwin') resized.setTemplateImage(true);
+  return resized;
+}
+
+function formatSpeed(value) {
+  const bytes = Number(value) || 0;
+  if (bytes < 1024) return `${Math.max(0, Math.round(bytes))} B/s`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB/s`;
+  return `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB/s`;
+}
+
+function formatBytes(value) {
+  const bytes = Math.max(0, Number(value) || 0);
+  if (bytes < 1024) return `${Math.round(bytes)} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(bytes < 10 * 1024 ? 1 : 0)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(bytes < 10 * 1024 * 1024 ? 1 : 0)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(2)} GB`;
+}
+
+function stopTrafficStream() {
+  if (trayTrafficRequest) {
+    trayTrafficRequest.destroy();
+    trayTrafficRequest = null;
+  }
+  trayTrafficPort = null;
+  trayTrafficBuffer = '';
+  usageBaseline = null;
+  cachedTraffic = { download: 0, upload: 0, downloadTotal: 0, uploadTotal: 0, updatedAt: 0 };
+}
+
+function updateTrayPresentation() {
+  if (!tray) return;
+  const stale = Date.now() - cachedTraffic.updatedAt > 3500;
+  const download = cachedTrayStatus.running && !stale ? cachedTraffic.download : 0;
+  const upload = cachedTrayStatus.running && !stale ? cachedTraffic.upload : 0;
+  const title = cachedTrayStatus.running
+    ? `↓ ${formatSpeed(download)} ↑ ${formatSpeed(upload)}`
+    : 'SophiaVPN';
+  if (typeof tray.setTitle === 'function') tray.setTitle(title);
+  tray.setToolTip(cachedTrayStatus.running
+    ? `SophiaVPN - ${cachedTrayStatus.label}\n下载 ${formatSpeed(download)}，上传 ${formatSpeed(upload)}`
+    : `SophiaVPN - ${cachedTrayStatus.label}`);
+}
+
+function startTrafficStream(ports) {
+  if (!ports || !ports.core) return;
+  if (trayTrafficRequest && trayTrafficPort === ports.core) return;
+  stopTrafficStream();
+  trayTrafficPort = ports.core;
+  const request = http.get(
+    { hostname: '127.0.0.1', port: ports.core, path: '/traffic', timeout: 0 },
+    response => {
+      response.setEncoding('utf8');
+      response.on('data', chunk => {
+        trayTrafficBuffer += chunk;
+        const lines = trayTrafficBuffer.split(/\r?\n/);
+        trayTrafficBuffer = lines.pop() || '';
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const traffic = JSON.parse(line);
+            cachedTraffic = {
+              download: Number(traffic.down || traffic.download || 0),
+              upload: Number(traffic.up || traffic.upload || 0),
+              downloadTotal: Number(traffic.downTotal || traffic.downloadTotal || 0),
+              uploadTotal: Number(traffic.upTotal || traffic.uploadTotal || 0),
+              updatedAt: Date.now()
+            };
+            recordTrafficTotals(traffic, ports.core);
+            updateTrayPresentation();
+          } catch (_error) {
+            // Ignore malformed streaming fragments.
+          }
+        }
+      });
+      response.on('end', () => {
+        trayTrafficRequest = null;
+        if (cachedTrayStatus.running) setTimeout(() => startTrafficStream(cachedTrayStatus.ports), 1500);
+      });
+    }
+  );
+  request.on('error', () => {
+    trayTrafficRequest = null;
+    if (cachedTrayStatus.running) setTimeout(() => startTrafficStream(cachedTrayStatus.ports), 2500);
+  });
+  trayTrafficRequest = request;
+}
+
+async function refreshTrayStatus() {
+  const result = await sophia(['status', '--json', '--no-delay']);
+  const status = parseStatusJson(result.stdout);
+  applyTrayStatus(status);
+}
+
+async function rebuildTrayMenu(options = {}) {
+  if (!tray) return;
+  let statusLabel = cachedTrayStatus.label || '读取中';
+  try {
+    if (options.refresh !== false) {
+      await refreshTrayStatus();
+    }
+    statusLabel = cachedTrayStatus.label || statusLabel;
+  } catch (_error) {
+    statusLabel = '状态未知';
+  }
+  const today = usageSummary(1);
+  const todayLabel = `今日流量：↓ ${formatBytes(today.total.download)} / ↑ ${formatBytes(today.total.upload)}`;
+  const template = [
+    { label: `SophiaVPN：${statusLabel}`, enabled: false },
+    { label: todayLabel, enabled: false },
+    { type: 'separator' },
+    { label: '显示窗口', click: () => createWindow() },
+    {
+      label: '隐藏窗口',
+      enabled: Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()),
+      click: () => {
+        if (mainWindow && !mainWindow.isDestroyed()) mainWindow.hide();
+      }
+    },
+    { label: '刷新状态', click: () => rebuildTrayMenu() },
+    { type: 'separator' },
+    {
+      label: '启动并接管代理',
+      click: async () => {
+        await handleAction('on').catch(error => {
+          if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('SOPHIAVPN_TRAY_ERROR', error.message || String(error));
+        });
+        await rebuildTrayMenu();
+      }
+    },
+    {
+      label: '关闭 SophiaVPN',
+      click: async () => {
+        await handleAction('off').catch(error => {
+          if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('SOPHIAVPN_TRAY_ERROR', error.message || String(error));
+        });
+        await rebuildTrayMenu();
+      }
+    },
+    { type: 'separator' },
+    {
+      label: '退出桌面应用',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ];
+  tray.setContextMenu(Menu.buildFromTemplate(template));
+  updateTrayPresentation();
+}
+
+function createTray() {
+  if (tray) return;
+  tray = new Tray(trayIcon());
+  tray.on('click', () => createWindow());
+  rebuildTrayMenu();
+  trayStatusTimer = setInterval(() => {
+    refreshTrayStatus().then(() => rebuildTrayMenu({ refresh: false })).catch(() => {
+      cachedTrayStatus = { ...cachedTrayStatus, label: '状态未知' };
+      updateTrayPresentation();
+    });
+  }, 5000);
+  trayTitleTimer = setInterval(updateTrayPresentation, 1000);
+}
+
+function cleanupTrayRuntime() {
+  if (trayStatusTimer) {
+    clearInterval(trayStatusTimer);
+    trayStatusTimer = null;
+  }
+  if (trayTitleTimer) {
+    clearInterval(trayTitleTimer);
+    trayTitleTimer = null;
+  }
+  stopTrafficStream();
+}
+
+function delay(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function runDesktopSmoke() {
+  const failures = [];
+  await delay(600);
+  const readTrayState = () => {
+    const exists = Boolean(tray && (!tray.isDestroyed || !tray.isDestroyed()));
+    return {
+      exists,
+      title: exists && typeof tray.getTitle === 'function' ? tray.getTitle() : null,
+      bounds: exists && typeof tray.getBounds === 'function' ? tray.getBounds() : null
+    };
+  };
+  const before = {
+    hasWindow: Boolean(mainWindow && !mainWindow.isDestroyed()),
+    windowVisible: Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()),
+    tray: readTrayState()
+  };
+
+  if (!before.hasWindow) failures.push('window was not created');
+  if (!before.tray.exists) failures.push('tray was not created');
+  if (before.tray.title !== null && !before.tray.title) failures.push('tray title was empty');
+
+  if (before.hasWindow) {
+    mainWindow.close();
+    await delay(350);
+  }
+
+  const after = {
+    hasWindow: Boolean(mainWindow && !mainWindow.isDestroyed()),
+    windowVisible: Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()),
+    tray: readTrayState()
+  };
+
+  if (!after.hasWindow) failures.push('close destroyed the BrowserWindow instead of hiding it');
+  if (after.windowVisible) failures.push('close left the BrowserWindow visible instead of hiding it');
+  if (!after.tray.exists) failures.push('tray was missing after closing the window');
+  if (after.tray.title !== null && !after.tray.title) failures.push('tray title was empty after closing the window');
+
+  const result = {
+    ok: failures.length === 0,
+    failures,
+    before,
+    after
+  };
+  console.log(`SOPHIAVPN_DESKTOP_SMOKE ${JSON.stringify(result)}`);
+
+  isQuitting = true;
+  cleanupTrayRuntime();
+  if (tray && (!tray.isDestroyed || !tray.isDestroyed())) tray.destroy();
+  app.exit(result.ok ? 0 : 2);
+}
+
+app.on('before-quit', () => {
+  isQuitting = true;
+  cleanupTrayRuntime();
+});
 
 app.whenReady().then(() => {
   ensureDir(DATA_DIR);
   ensureDir(LOG_DIR);
   ipcMain.handle('SOPHIAVPN_MACOS', async (_event, action, payload) => handleAction(action, payload));
   ipcMain.handle('SILVERVPN_MACOS', async (_event, action, payload) => handleAction(action, payload));
+  createTray();
   createWindow();
+  if (DESKTOP_SMOKE) {
+    runDesktopSmoke().catch(error => {
+      console.error(`SOPHIAVPN_DESKTOP_SMOKE ${JSON.stringify({ ok: false, failures: [error.message || String(error)] })}`);
+      isQuitting = true;
+      app.exit(2);
+    });
+  }
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    createWindow();
   });
 });
 

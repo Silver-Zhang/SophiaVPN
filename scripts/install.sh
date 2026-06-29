@@ -194,6 +194,7 @@ if [[ "$OS" == "Darwin" ]]; then
 <dict>
   <key>CFBundleName</key><string>SophiaVPN</string>
   <key>CFBundleDisplayName</key><string>SophiaVPN</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleIdentifier</key><string>com.sophia.vpn</string>
   <key>CFBundleVersion</key><string>0.1.0</string>
   <key>CFBundleShortVersionString</key><string>0.1.0</string>
