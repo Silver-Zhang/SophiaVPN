@@ -1206,7 +1206,9 @@
     let busyCount = 0;
     let telemetryTimer = null;
     let animationFrame = null;
+    let lastParticleFrame = 0;
     let particleState = null;
+    let uiSleeping = false;
     const chartState = {
       bandwidth: false,
       latency: false
@@ -1236,6 +1238,7 @@
       customThemeColor: localStorage.getItem('sophia.customThemeColor') || '#e83f83'
     };
     const systemDarkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    const reducedMotionQuery = window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
 
     function $(id) { return document.getElementById(id); }
     function escapeHtml(value) {
@@ -1941,17 +1944,26 @@
 
     function startTelemetryLoop() {
       if (telemetryTimer) return;
+      if (uiSleeping || document.visibilityState === 'hidden') return;
       readTelemetry().then(pushTelemetry);
       telemetryTimer = window.setInterval(() => {
+        if (uiSleeping || document.visibilityState === 'hidden') return;
         readTelemetry().then(pushTelemetry);
       }, 1000);
+    }
+
+    function stopTelemetryLoop() {
+      if (telemetryTimer) {
+        window.clearInterval(telemetryTimer);
+        telemetryTimer = null;
+      }
     }
 
     function setupParticles() {
       const canvas = $('particleCanvas');
       if (!canvas) return null;
       const rect = canvas.getBoundingClientRect();
-      const count = Math.max(58, Math.min(116, Math.floor(rect.width / 10)));
+      const count = Math.max(24, Math.min(54, Math.floor(rect.width / 24)));
       const particles = Array.from({ length: count }, () => ({
         x: Math.random() * rect.width,
         y: Math.random() * rect.height,
@@ -1963,7 +1975,62 @@
       return { canvas, particles, lastWidth: rect.width, lastHeight: rect.height };
     }
 
-    function drawParticles() {
+    function shouldAnimateParticles() {
+      return currentView === 'dashboard' &&
+        !uiSleeping &&
+        document.visibilityState !== 'hidden' &&
+        !(reducedMotionQuery && reducedMotionQuery.matches);
+    }
+
+    function releaseCanvas(id) {
+      const canvas = $(id);
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, canvas.width || 1, canvas.height || 1);
+      canvas.width = 1;
+      canvas.height = 1;
+    }
+
+    function releaseDynamicCanvases() {
+      ['particleCanvas', 'bandwidthChart', 'latencyChart'].forEach(releaseCanvas);
+    }
+
+    function stopParticleAnimation(options = {}) {
+      if (animationFrame) {
+        window.cancelAnimationFrame(animationFrame);
+        animationFrame = null;
+      }
+      lastParticleFrame = 0;
+      if (options.release) {
+        particleState = null;
+        releaseCanvas('particleCanvas');
+      }
+    }
+
+    function enterUiSleep() {
+      uiSleeping = true;
+      stopTelemetryLoop();
+      stopParticleAnimation({ release: true });
+      releaseDynamicCanvases();
+    }
+
+    function resumeUi() {
+      uiSleeping = false;
+      readTelemetry().then(pushTelemetry);
+      startTelemetryLoop();
+      if (currentView === 'dashboard') startParticleAnimation();
+    }
+
+    function drawParticles(timestamp = 0) {
+      animationFrame = null;
+      if (!shouldAnimateParticles()) return;
+      const running = Boolean(lastDashboard.status && lastDashboard.status.running);
+      const frameMs = 1000 / (running ? 12 : 6);
+      if (timestamp && lastParticleFrame && timestamp - lastParticleFrame < frameMs) {
+        animationFrame = window.requestAnimationFrame(drawParticles);
+        return;
+      }
+      lastParticleFrame = timestamp || window.performance.now();
       const target = canvasContext('particleCanvas');
       if (!target) return;
       if (!Number.isFinite(target.width) || !Number.isFinite(target.height) || target.width <= 1 || target.height <= 1) {
@@ -1978,7 +2045,6 @@
         animationFrame = window.requestAnimationFrame(drawParticles);
         return;
       }
-      const running = Boolean(lastDashboard.status && lastDashboard.status.running);
       const styles = getComputedStyle(document.body);
       const lineRgb = styles.getPropertyValue('--particle-line').trim() || '80, 122, 178';
       const dotRgb = styles.getPropertyValue('--particle-dot').trim() || '232, 63, 131';
@@ -1986,9 +2052,9 @@
       ctx.clearRect(0, 0, width, height);
       const particles = particleState ? particleState.particles : [];
       const time = Date.now() / 1000;
-      for (let lane = 0; lane < 5; lane += 1) {
-        const y = ((height * (0.16 + lane * 0.17)) + Math.sin(time * 0.7 + lane) * 16) % height;
-        const offset = ((time * (running ? 72 : 28) + lane * 96) % (width + 180)) - 180;
+      for (let lane = 0; lane < 3; lane += 1) {
+        const y = ((height * (0.20 + lane * 0.24)) + Math.sin(time * 0.58 + lane) * 14) % height;
+        const offset = ((time * (running ? 42 : 16) + lane * 128) % (width + 180)) - 180;
         if (!Number.isFinite(y) || !Number.isFinite(offset)) continue;
         const gradient = ctx.createLinearGradient(offset, y, offset + 180, y + 28);
         gradient.addColorStop(0, `rgba(${lineRgb}, 0)`);
@@ -2016,8 +2082,8 @@
           const dx = a.x - b.x;
           const dy = a.y - b.y;
           const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < 118) {
-            const alpha = (1 - dist / 118) * (running ? 0.34 : 0.18);
+          if (dist < 96) {
+            const alpha = (1 - dist / 96) * (running ? 0.26 : 0.12);
             ctx.strokeStyle = `rgba(${running ? lineRgb : lineRgb},${alpha})`;
             ctx.lineWidth = 1;
             ctx.beginPath();
@@ -2037,9 +2103,11 @@
     }
 
     function startParticleAnimation() {
+      if (!shouldAnimateParticles()) return;
       if (animationFrame) return;
+      lastParticleFrame = 0;
       particleState = setupParticles();
-      drawParticles();
+      animationFrame = window.requestAnimationFrame(drawParticles);
     }
 
     function showView(name) {
@@ -2050,6 +2118,8 @@
       setText('pageTitle', meta[0]);
       setText('pageSubtitle', meta[1]);
       applyLanguage();
+      if (name === 'dashboard') startParticleAnimation();
+      else stopParticleAnimation();
     }
 
     function renderStatus(dashboard) {
@@ -2418,6 +2488,30 @@
       particleState = null;
       renderTelemetry();
     });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        enterUiSleep();
+      } else {
+        resumeUi();
+      }
+    });
+    if (api && typeof api.onWindowVisibility === 'function') {
+      api.onWindowVisibility(({ visible }) => {
+        if (visible) resumeUi();
+        else enterUiSleep();
+      });
+    }
+    if (reducedMotionQuery) {
+      const handleMotionPreferenceChange = () => {
+        if (reducedMotionQuery.matches) stopParticleAnimation();
+        else if (currentView === 'dashboard' && document.visibilityState !== 'hidden') startParticleAnimation();
+      };
+      if (typeof reducedMotionQuery.addEventListener === 'function') {
+        reducedMotionQuery.addEventListener('change', handleMotionPreferenceChange);
+      } else if (typeof reducedMotionQuery.addListener === 'function') {
+        reducedMotionQuery.addListener(handleMotionPreferenceChange);
+      }
+    }
     if (systemDarkQuery) {
       const handleSystemAppearanceChange = () => {
         if (appPrefs.appearance === 'system') {

@@ -753,10 +753,23 @@ function createWindow() {
     webPreferences: {
       preload: path.join(APP_ROOT, 'preload-macos.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      backgroundThrottling: true
     }
   });
   mainWindow.loadFile(path.join(APP_ROOT, 'renderer', 'macos.html'));
+  mainWindow.on('show', () => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('SOPHIAVPN_WINDOW_VISIBILITY', { visible: true });
+  });
+  mainWindow.on('hide', () => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('SOPHIAVPN_WINDOW_VISIBILITY', { visible: false });
+  });
+  mainWindow.on('minimize', () => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('SOPHIAVPN_WINDOW_VISIBILITY', { visible: false });
+  });
+  mainWindow.on('restore', () => {
+    if (!mainWindow.isDestroyed()) mainWindow.webContents.send('SOPHIAVPN_WINDOW_VISIBILITY', { visible: true });
+  });
   mainWindow.on('close', event => {
     if (isQuitting || process.platform !== 'darwin') return;
     event.preventDefault();
@@ -956,6 +969,17 @@ function delay(ms) {
 async function runDesktopSmoke() {
   const failures = [];
   await delay(600);
+  const readRendererPowerState = async () => {
+    if (!mainWindow || mainWindow.isDestroyed()) return null;
+    return mainWindow.webContents.executeJavaScript(`(() => {
+      const canvas = document.getElementById('particleCanvas');
+      return {
+        visibilityState: document.visibilityState,
+        particleCanvas: canvas ? { width: canvas.width, height: canvas.height } : null,
+        hasVisibilityBridge: Boolean(window.sophiaVPN && window.sophiaVPN.onWindowVisibility)
+      };
+    })()`, true).catch(error => ({ error: error.message || String(error) }));
+  };
   const readTrayState = () => {
     const exists = Boolean(tray && (!tray.isDestroyed || !tray.isDestroyed()));
     return {
@@ -969,10 +993,12 @@ async function runDesktopSmoke() {
     windowVisible: Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()),
     tray: readTrayState()
   };
+  before.renderer = await readRendererPowerState();
 
   if (!before.hasWindow) failures.push('window was not created');
   if (!before.tray.exists) failures.push('tray was not created');
   if (before.tray.title !== null && !before.tray.title) failures.push('tray title was empty');
+  if (before.renderer && before.renderer.hasVisibilityBridge !== true) failures.push('renderer visibility bridge was not available');
 
   if (before.hasWindow) {
     mainWindow.close();
@@ -984,11 +1010,20 @@ async function runDesktopSmoke() {
     windowVisible: Boolean(mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()),
     tray: readTrayState()
   };
+  after.renderer = await readRendererPowerState();
 
   if (!after.hasWindow) failures.push('close destroyed the BrowserWindow instead of hiding it');
   if (after.windowVisible) failures.push('close left the BrowserWindow visible instead of hiding it');
   if (!after.tray.exists) failures.push('tray was missing after closing the window');
   if (after.tray.title !== null && !after.tray.title) failures.push('tray title was empty after closing the window');
+  if (after.renderer && after.renderer.visibilityState !== 'hidden') failures.push('renderer did not enter hidden visibility state');
+  if (
+    after.renderer &&
+    after.renderer.particleCanvas &&
+    (after.renderer.particleCanvas.width > 1 || after.renderer.particleCanvas.height > 1)
+  ) {
+    failures.push('particle canvas was not released while the window was hidden');
+  }
 
   const result = {
     ok: failures.length === 0,
