@@ -11,6 +11,12 @@ const api = {
     const handler = (_event, payload) => callback(payload || {});
     ipcRenderer.on('SOPHIAVPN_WINDOW_VISIBILITY', handler);
     return () => ipcRenderer.removeListener('SOPHIAVPN_WINDOW_VISIBILITY', handler);
+  },
+  onUpdateStatus(callback) {
+    if (typeof callback !== 'function') return () => {};
+    const handler = (_event, payload) => callback(payload || {});
+    ipcRenderer.on('SOPHIAVPN_UPDATE_STATUS', handler);
+    return () => ipcRenderer.removeListener('SOPHIAVPN_UPDATE_STATUS', handler);
   }
 };
 

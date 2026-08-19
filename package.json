@@ -1,8 +1,13 @@
 {
   "name": "sophiavpn",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "SophiaVPN macOS VPN and proxy client.",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Silver-Zhang/SophiaVPN.git"
+  },
+  "homepage": "https://github.com/Silver-Zhang/SophiaVPN",
   "main": "main-macos.js",
   "productName": "SophiaVPN",
   "scripts": {

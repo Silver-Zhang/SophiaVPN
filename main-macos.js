@@ -1,18 +1,25 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Tray, Menu, nativeImage, Notification, net } = require('electron');
 const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
 const { spawn, spawnSync } = require('child_process');
+const { domainToASCII } = require('url');
 
 const APP_ROOT = __dirname;
 const DATA_DIR = process.env.SOPHIAVPN_DATA_DIR || path.join(os.homedir(), '.config', 'SophiaVPN');
 const LOG_DIR = path.join(DATA_DIR, 'logs');
 const USAGE_LEDGER = path.join(DATA_DIR, 'usage-ledger.json');
+const UPDATE_STATE_FILE = path.join(DATA_DIR, 'update-state.json');
 const SOPHIA = path.join(APP_ROOT, 'bin', 'sophia');
 const DESKTOP_SMOKE = process.env.SOPHIAVPN_DESKTOP_SMOKE === '1';
+const APP_VERSION = require('./package.json').version || '0.0.0';
+const RELEASE_API_URL = 'https://api.github.com/repos/Silver-Zhang/SophiaVPN/releases/latest';
+const RELEASES_PAGE_URL = 'https://github.com/Silver-Zhang/SophiaVPN/releases';
+const UPDATE_CHECK_INTERVAL_MS = 12 * 60 * 60 * 1000;
+const UPDATE_RETRY_INTERVAL_MS = 30 * 60 * 1000;
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
@@ -22,6 +29,18 @@ let trayTrafficRequest = null;
 let trayTrafficPort = null;
 let trayTrafficBuffer = '';
 let usageBaseline = null;
+let updateCheckTimer = null;
+let updateCheckPromise = null;
+let cachedUpdateStatus = {
+  status: 'idle',
+  currentVersion: APP_VERSION,
+  latestVersion: '',
+  updateAvailable: false,
+  releaseUrl: RELEASES_PAGE_URL,
+  publishedAt: '',
+  checkedAt: '',
+  message: '尚未检查更新 / Not checked yet.'
+};
 let cachedTrayStatus = {
   running: false,
   coreReachable: false,
@@ -114,6 +133,242 @@ function writeJson(file, value) {
 
 function readSettings() {
   return readJson(path.join(DATA_DIR, 'settings.json'), {});
+}
+
+function normalizeVersion(value) {
+  const match = String(value || '').trim().match(/^v?(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/i);
+  if (!match) return null;
+  return match.slice(1).map(Number);
+}
+
+function compareVersions(left, right) {
+  const a = normalizeVersion(left);
+  const b = normalizeVersion(right);
+  if (!a || !b) return 0;
+  for (let index = 0; index < 3; index += 1) {
+    if (a[index] > b[index]) return 1;
+    if (a[index] < b[index]) return -1;
+  }
+  return 0;
+}
+
+function safeReleaseUrl(value) {
+  const url = String(value || '');
+  return url.startsWith('https://github.com/Silver-Zhang/SophiaVPN/') ? url : RELEASES_PAGE_URL;
+}
+
+function readUpdateState() {
+  const stored = readJson(UPDATE_STATE_FILE, {});
+  const latestVersion = String(stored.latestVersion || '');
+  return {
+    status: stored.status || 'idle',
+    currentVersion: APP_VERSION,
+    latestVersion,
+    updateAvailable: compareVersions(latestVersion, APP_VERSION) > 0,
+    releaseUrl: safeReleaseUrl(stored.releaseUrl),
+    publishedAt: String(stored.publishedAt || ''),
+    checkedAt: String(stored.checkedAt || ''),
+    message: String(stored.message || '尚未检查更新 / Not checked yet.')
+  };
+}
+
+function requestJson(url, timeoutMs = 12000) {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const request = net.request({ method: 'GET', url });
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      callback(value);
+    };
+    const timeout = setTimeout(() => {
+      request.abort();
+      finish(reject, new Error('检查更新超时 / Update check timed out.'));
+    }, timeoutMs);
+    request.setHeader('Accept', 'application/vnd.github+json');
+    request.setHeader('User-Agent', `SophiaVPN/${APP_VERSION}`);
+    request.on('response', response => {
+      let body = '';
+      response.setEncoding('utf8');
+      response.on('data', chunk => {
+        body += chunk;
+        if (body.length > 1024 * 1024) {
+          request.abort();
+          finish(reject, new Error('更新响应过大 / Update response is too large.'));
+        }
+      });
+      response.on('end', () => {
+        if (response.statusCode === 404) {
+          finish(resolve, { statusCode: 404, payload: null });
+          return;
+        }
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          finish(reject, new Error(`GitHub 返回 ${response.statusCode} / GitHub returned ${response.statusCode}.`));
+          return;
+        }
+        try {
+          finish(resolve, { statusCode: response.statusCode, payload: JSON.parse(body) });
+        } catch (_error) {
+          finish(reject, new Error('无法读取更新信息 / Invalid update response.'));
+        }
+      });
+    });
+    request.on('error', error => finish(reject, error));
+    request.end();
+  });
+}
+
+function emitUpdateStatus() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('SOPHIAVPN_UPDATE_STATUS', cachedUpdateStatus);
+  }
+}
+
+function notifyUpdateIfNeeded(status) {
+  if (!status.updateAvailable || !Notification.isSupported()) return;
+  const stored = readJson(UPDATE_STATE_FILE, {});
+  if (stored.lastNotifiedVersion === status.latestVersion) return;
+  const notification = new Notification({
+    title: 'SophiaVPN 有新版本',
+    body: `当前 ${status.currentVersion}，最新 ${status.latestVersion}`,
+    silent: false
+  });
+  notification.on('click', () => shell.openExternal(safeReleaseUrl(status.releaseUrl)));
+  notification.show();
+  writeJson(UPDATE_STATE_FILE, { ...stored, ...status, lastNotifiedVersion: status.latestVersion });
+}
+
+async function checkForUpdates(options = {}) {
+  const force = Boolean(options.force);
+  const shouldNotify = Boolean(options.notify);
+  if (updateCheckPromise) return updateCheckPromise;
+  const checkedAt = Date.parse(cachedUpdateStatus.checkedAt || '');
+  if (!force && cachedUpdateStatus.status !== 'error' && Number.isFinite(checkedAt) && Date.now() - checkedAt < UPDATE_CHECK_INTERVAL_MS) {
+    if (shouldNotify) notifyUpdateIfNeeded(cachedUpdateStatus);
+    return cachedUpdateStatus;
+  }
+  cachedUpdateStatus = {
+    ...cachedUpdateStatus,
+    status: 'checking',
+    currentVersion: APP_VERSION,
+    message: '正在检查更新 / Checking for updates...'
+  };
+  emitUpdateStatus();
+  updateCheckPromise = (async () => {
+    try {
+      const response = await requestJson(RELEASE_API_URL);
+      const release = response.payload;
+      const latestVersion = release && release.tag_name ? String(release.tag_name).replace(/^v/i, '') : '';
+      const updateAvailable = Boolean(latestVersion) && compareVersions(latestVersion, APP_VERSION) > 0;
+      cachedUpdateStatus = {
+        status: response.statusCode === 404 ? 'no-release' : updateAvailable ? 'available' : 'current',
+        currentVersion: APP_VERSION,
+        latestVersion,
+        updateAvailable,
+        releaseUrl: safeReleaseUrl(release && release.html_url),
+        publishedAt: release && release.published_at ? String(release.published_at) : '',
+        checkedAt: new Date().toISOString(),
+        message: response.statusCode === 404
+          ? '仓库尚未发布正式版本 / No published release yet.'
+          : updateAvailable
+            ? `发现新版本 ${latestVersion} / New version available.`
+            : '当前已是最新版本 / SophiaVPN is up to date.'
+      };
+    } catch (error) {
+      cachedUpdateStatus = {
+        ...cachedUpdateStatus,
+        status: 'error',
+        currentVersion: APP_VERSION,
+        updateAvailable: false,
+        checkedAt: new Date().toISOString(),
+        message: `暂时无法检查更新：${error.message || String(error)} / Update check unavailable.`
+      };
+    }
+    const stored = readJson(UPDATE_STATE_FILE, {});
+    writeJson(UPDATE_STATE_FILE, { ...stored, ...cachedUpdateStatus });
+    if (shouldNotify) notifyUpdateIfNeeded(cachedUpdateStatus);
+    emitUpdateStatus();
+    if (tray) rebuildTrayMenu({ refresh: false }).catch(() => {});
+    return cachedUpdateStatus;
+  })().finally(() => {
+    updateCheckPromise = null;
+  });
+  return updateCheckPromise;
+}
+
+function scheduleUpdateChecks(delayMs = 8000) {
+  if (updateCheckTimer) clearTimeout(updateCheckTimer);
+  updateCheckTimer = setTimeout(async () => {
+    await checkForUpdates({ notify: true });
+    scheduleUpdateChecks(cachedUpdateStatus.status === 'error' ? UPDATE_RETRY_INTERVAL_MS : UPDATE_CHECK_INTERVAL_MS);
+  }, delayMs);
+  if (typeof updateCheckTimer.unref === 'function') updateCheckTimer.unref();
+}
+
+function readBypassDomains(settings = readSettings()) {
+  const values = Array.isArray(settings.bypassHosts) ? settings.bypassHosts : [];
+  return [...new Set(values.map(value => String(value || '').trim()).filter(Boolean))];
+}
+
+function normalizeBypassDomain(value, includeSubdomains = false) {
+  let raw = String(value || '').trim().toLowerCase();
+  if (!raw) {
+    throw new Error('请输入要绕过的域名。 Domain is required.');
+  }
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(raw) || /[/?#@]/.test(raw)) {
+    throw new Error('请只输入域名，不要包含协议、路径或账号信息。 Enter a domain without protocol, path, or credentials.');
+  }
+  if (raw.startsWith('*.')) {
+    includeSubdomains = true;
+    raw = raw.slice(2);
+  } else if (raw.startsWith('.')) {
+    includeSubdomains = true;
+    raw = raw.slice(1);
+  }
+  raw = raw.replace(/\.$/, '');
+  const ascii = domainToASCII(raw);
+  const labels = ascii.split('.');
+  const validLabel = label => /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i.test(label);
+  if (!ascii || ascii.length > 253 || (ascii !== 'localhost' && (labels.length < 2 || !labels.every(validLabel)))) {
+    throw new Error('域名格式无效，例如 example.com。 Invalid domain format.');
+  }
+  return includeSubdomains && ascii !== 'localhost' ? `*.${ascii}` : ascii;
+}
+
+function writeBypassDomains(domains) {
+  const settings = readSettings();
+  settings.bypassHosts = [...new Set(domains.map(value => String(value || '').trim()).filter(Boolean))];
+  writeJson(path.join(DATA_DIR, 'settings.json'), settings);
+  return settings.bypassHosts;
+}
+
+async function applyBypassDomainChange(message, applyNow = false) {
+  const statusResult = await sophia(['status', '--json', '--no-delay']);
+  const status = parseStatusJson(statusResult.stdout) || null;
+  let restarted = false;
+  if (applyNow && status && status.running) {
+    const restartResult = await sophia(['restart']);
+    if (!restartResult.ok) {
+      const detail = conciseText(resultText(restartResult), '未知错误 / Unknown error');
+      throw new Error(`${message}\n规则已保存，但核心重启失败：${detail}\nRule was saved, but the core restart failed.`);
+    }
+    restarted = true;
+  }
+  const dashboard = await buildDashboard();
+  applyTrayStatus(dashboard.status);
+  return {
+    ok: true,
+    code: 0,
+    stdout: '',
+    stderr: '',
+    text: restarted
+      ? `${message}\nSophiaVPN 核心已重启，规则现在生效。 / Core restarted and the rule is active.`
+      : status && status.running
+        ? `${message}\n当前连接未重启；规则将在下次启动或重启后生效。 / The current connection was not restarted; the rule applies after the next start or restart.`
+      : `${message}\nSophiaVPN 当前未运行，规则会在下次启动时生效。 / The rule will apply on next start.`,
+    dashboard
+  };
 }
 
 function readProfilesData() {
@@ -551,6 +806,10 @@ async function buildDashboard(options = {}) {
     terminalProxyText: terminalProxy.text || conciseText(resultText(terminalResult)),
     systemProxy,
     terminalProxy,
+    routing: {
+      bypassDomains: readBypassDomains()
+    },
+    update: cachedUpdateStatus,
     dataDir: DATA_DIR,
     logDir: LOG_DIR
   };
@@ -636,6 +895,34 @@ async function handleAction(action, payload = {}) {
     case 'usage-summary': {
       const days = Math.max(1, Math.min(30, Number(payload.days || 1)));
       return usageSummary(days);
+    }
+    case 'update-status':
+      return cachedUpdateStatus;
+    case 'check-update':
+      return checkForUpdates({ force: true, notify: false });
+    case 'open-update-page': {
+      const safeUrl = safeReleaseUrl(cachedUpdateStatus.releaseUrl);
+      await shell.openExternal(safeUrl);
+      return { ok: true, releaseUrl: safeUrl };
+    }
+    case 'bypass-domain-add': {
+      const domain = normalizeBypassDomain(payload.domain, Boolean(payload.includeSubdomains));
+      const domains = readBypassDomains();
+      if (domains.includes(domain)) {
+        return applyBypassDomainChange(`绕过域名已存在：${domain} / Bypass domain already exists.`, false);
+      }
+      writeBypassDomains([...domains, domain]);
+      return applyBypassDomainChange(`已添加绕过域名：${domain} / Bypass domain added.`, Boolean(payload.apply));
+    }
+    case 'bypass-domain-remove': {
+      const requested = String(payload.domain || '').trim();
+      const domain = normalizeBypassDomain(requested, requested.startsWith('*.') || requested.startsWith('.'));
+      const domains = readBypassDomains();
+      if (!domains.includes(domain)) {
+        return applyBypassDomainChange(`未找到绕过域名：${domain} / Bypass domain was not found.`, false);
+      }
+      writeBypassDomains(domains.filter(value => value !== domain));
+      return applyBypassDomainChange(`已删除绕过域名：${domain} / Bypass domain removed.`, Boolean(payload.apply));
     }
     case 'install-sophia':
     case 'install-svpn': {
@@ -904,6 +1191,22 @@ async function rebuildTrayMenu(options = {}) {
       }
     },
     { label: '刷新状态', click: () => rebuildTrayMenu() },
+    {
+      label: cachedUpdateStatus.updateAvailable
+        ? `发现新版本 ${cachedUpdateStatus.latestVersion}`
+        : cachedUpdateStatus.status === 'checking'
+          ? '正在检查更新…'
+          : '检查更新',
+      enabled: cachedUpdateStatus.status !== 'checking',
+      click: async () => {
+        if (cachedUpdateStatus.updateAvailable) {
+          await shell.openExternal(safeReleaseUrl(cachedUpdateStatus.releaseUrl));
+          return;
+        }
+        await checkForUpdates({ force: true, notify: false });
+        await rebuildTrayMenu({ refresh: false });
+      }
+    },
     { type: 'separator' },
     {
       label: '启动并接管代理',
@@ -940,6 +1243,7 @@ function createTray() {
   if (tray) return;
   tray = new Tray(trayIcon());
   tray.on('click', () => createWindow());
+  updateTrayPresentation();
   rebuildTrayMenu();
   trayStatusTimer = setInterval(() => {
     refreshTrayStatus().then(() => rebuildTrayMenu({ refresh: false })).catch(() => {
@@ -959,6 +1263,10 @@ function cleanupTrayRuntime() {
     clearInterval(trayTitleTimer);
     trayTitleTimer = null;
   }
+  if (updateCheckTimer) {
+    clearTimeout(updateCheckTimer);
+    updateCheckTimer = null;
+  }
   stopTrafficStream();
 }
 
@@ -969,6 +1277,18 @@ function delay(ms) {
 async function runDesktopSmoke() {
   const failures = [];
   await delay(600);
+  cachedUpdateStatus = {
+    status: 'available',
+    currentVersion: APP_VERSION,
+    latestVersion: '9.9.9',
+    updateAvailable: true,
+    releaseUrl: `${RELEASES_PAGE_URL}/tag/v9.9.9`,
+    publishedAt: new Date().toISOString(),
+    checkedAt: new Date().toISOString(),
+    message: 'Smoke test update available.'
+  };
+  emitUpdateStatus();
+  await delay(100);
   const readRendererPowerState = async () => {
     if (!mainWindow || mainWindow.isDestroyed()) return null;
     return mainWindow.webContents.executeJavaScript(`(() => {
@@ -976,7 +1296,14 @@ async function runDesktopSmoke() {
       return {
         visibilityState: document.visibilityState,
         particleCanvas: canvas ? { width: canvas.width, height: canvas.height } : null,
-        hasVisibilityBridge: Boolean(window.sophiaVPN && window.sophiaVPN.onWindowVisibility)
+        hasVisibilityBridge: Boolean(window.sophiaVPN && window.sophiaVPN.onWindowVisibility),
+        hasUpdateBridge: Boolean(window.sophiaVPN && window.sophiaVPN.onUpdateStatus),
+        update: {
+          currentVersion: document.getElementById('currentVersion')?.textContent || '',
+          latestVersion: document.getElementById('latestVersion')?.textContent || '',
+          settingsHasUpdate: Boolean(document.getElementById('settingsNav')?.classList.contains('has-update')),
+          releaseButtonVisible: !document.getElementById('openUpdatePageButton')?.hidden
+        }
       };
     })()`, true).catch(error => ({ error: error.message || String(error) }));
   };
@@ -999,6 +1326,10 @@ async function runDesktopSmoke() {
   if (!before.tray.exists) failures.push('tray was not created');
   if (before.tray.title !== null && !before.tray.title) failures.push('tray title was empty');
   if (before.renderer && before.renderer.hasVisibilityBridge !== true) failures.push('renderer visibility bridge was not available');
+  if (before.renderer && before.renderer.hasUpdateBridge !== true) failures.push('renderer update bridge was not available');
+  if (before.renderer && before.renderer.update && before.renderer.update.latestVersion !== 'v9.9.9') failures.push('latest update version was not rendered');
+  if (before.renderer && before.renderer.update && !before.renderer.update.settingsHasUpdate) failures.push('settings update indicator was not rendered');
+  if (before.renderer && before.renderer.update && !before.renderer.update.releaseButtonVisible) failures.push('release button was not rendered');
 
   if (before.hasWindow) {
     mainWindow.close();
@@ -1047,10 +1378,12 @@ app.on('before-quit', () => {
 app.whenReady().then(() => {
   ensureDir(DATA_DIR);
   ensureDir(LOG_DIR);
+  cachedUpdateStatus = readUpdateState();
   ipcMain.handle('SOPHIAVPN_MACOS', async (_event, action, payload) => handleAction(action, payload));
   ipcMain.handle('SILVERVPN_MACOS', async (_event, action, payload) => handleAction(action, payload));
   createTray();
   createWindow();
+  scheduleUpdateChecks();
   if (DESKTOP_SMOKE) {
     runDesktopSmoke().catch(error => {
       console.error(`SOPHIAVPN_DESKTOP_SMOKE ${JSON.stringify({ ok: false, failures: [error.message || String(error)] })}`);
