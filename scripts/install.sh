@@ -16,6 +16,7 @@ cd "$ROOT_DIR"
 bash "$ROOT_DIR/scripts/install-node-runtime.sh"
 NODE_BIN="$ROOT_DIR/resources/node-runtime/bin/node"
 NPM_BIN="$ROOT_DIR/resources/node-runtime/bin/npm"
+APP_VERSION="$(cd "$ROOT_DIR" && "$NODE_BIN" -p "require('./package.json').version")"
 export SOPHIA_NODE="$NODE_BIN"
 export SOPHIA_NPM="$NPM_BIN"
 
@@ -196,8 +197,8 @@ if [[ "$OS" == "Darwin" ]]; then
   <key>CFBundleDisplayName</key><string>SophiaVPN</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleIdentifier</key><string>com.sophia.vpn</string>
-  <key>CFBundleVersion</key><string>0.1.0</string>
-  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>CFBundleVersion</key><string>$APP_VERSION</string>
+  <key>CFBundleShortVersionString</key><string>$APP_VERSION</string>
   <key>CFBundleExecutable</key><string>SophiaVPN</string>
   <key>CFBundleIconFile</key><string>SophiaVPN</string>
   <key>LSMinimumSystemVersion</key><string>10.13</string>

@@ -70,6 +70,12 @@ SOPHIA_FORCE_SYSTEM_PROXY=1 sophia system-proxy on
 sophia system-proxy on --force
 ```
 
+## Software updates
+
+The desktop app checks GitHub Releases after launch and every 12 hours thereafter. When a published release is newer than the local `package.json` version, SophiaVPN shows the update in Settings, the status menu, and a macOS notification. It never downloads, installs, or restarts the proxy automatically.
+
+To publish an update, bump the version in `package.json` and create the matching GitHub Release, for example `v0.1.1`. Ordinary commits without a Release do not trigger update notifications.
+
 ## Safety scope
 
 TUN mode is not enabled in SophiaVPN. It does not intentionally create tunnel interfaces, pf rules, route-table rules, or DNS takeover. The default workflow is local proxy plus optional system proxy.

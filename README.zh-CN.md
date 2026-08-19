@@ -70,6 +70,12 @@ SOPHIA_FORCE_SYSTEM_PROXY=1 sophia system-proxy on
 sophia system-proxy on --force
 ```
 
+## 软件更新
+
+桌面应用启动后会检查 GitHub Releases，之后每 12 小时检查一次。发现高于本机 `package.json` 版本号的新正式版本时，SophiaVPN 会在设置页、状态栏菜单和 macOS 通知中提示。它不会自动下载、安装或重启代理。
+
+发布新版本时，需要同步更新 `package.json` 中的版本号，并在 GitHub 创建对应的 Release，例如 `v0.1.1`。只有推送普通提交而没有创建 Release，不会触发用户更新通知。
+
 ## 安全范围
 
 SophiaVPN 当前不启用 TUN，不主动创建隧道网卡、pf 规则、路由表规则或 DNS 接管。默认工作流是本地代理，并在安全条件满足时才进行可选系统代理设置。
